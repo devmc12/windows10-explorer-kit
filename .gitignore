@@ -1,0 +1,22 @@
+# Build output, local tools and user-specific state
+**/bin/
+**/obj/
+artifacts/
+.tools/
+.work/
+.vs/
+*.user
+*.suo
+*.exe
+*.pdb
+Config.ini
+test-local-*
+TestResults/
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.key
+*.log
+.idea

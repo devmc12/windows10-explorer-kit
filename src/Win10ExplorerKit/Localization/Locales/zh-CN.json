@@ -1,0 +1,19 @@
+{
+  "language.name": "简体中文",
+  "tray.status": "Ctrl+Shift+C - 文件资源管理器",
+  "tray.language": "语言 (&Language)",
+  "tray.openLog": "打开运行日志 (&L)",
+  "tray.exit": "退出 (&X)",
+  "shell.copyPaths": "复制路径 (Ctrl+Shift+C)",
+  "error.setup": "安装或卸载失败：{0}",
+  "error.language": "无法更新语言设置，请查看运行日志。",
+  "error.hotkey": "Ctrl+Shift+C 注册失败，可能已被其他程序占用。请查看运行日志。",
+  "tray.settings": "设置…",
+  "settings.title": "设置",
+  "settings.language": "界面语言",
+  "settings.quotePaths": "复制的路径使用双引号包裹",
+  "settings.save": "保存",
+  "settings.cancel": "取消",
+  "error.settings": "无法保存设置，请检查运行日志。",
+  "settings.startAtLogin": "登录时启动"
+}

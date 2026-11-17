@@ -1,0 +1,19 @@
+{
+  "language.name": "English",
+  "tray.status": "Ctrl+Shift+C - File Explorer",
+  "tray.language": "&Language",
+  "tray.openLog": "Open &log",
+  "tray.exit": "E&xit",
+  "shell.copyPaths": "Copy path (Ctrl+Shift+C)",
+  "error.setup": "Setup failed: {0}",
+  "error.language": "Could not update language settings. See the log for details.",
+  "error.hotkey": "Could not register Ctrl+Shift+C. Another app may be using it. See the log for details.",
+  "tray.settings": "Settings...",
+  "settings.title": "Settings",
+  "settings.language": "Language",
+  "settings.quotePaths": "Wrap copied paths in double quotes",
+  "settings.save": "Save",
+  "settings.cancel": "Cancel",
+  "error.settings": "Could not save settings. Please check the application log.",
+  "settings.startAtLogin": "Start when I sign in"
+}
