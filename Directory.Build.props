@@ -2,7 +2,7 @@
   <PropertyGroup>
     <Version>1.0.0</Version>
     <!-- Last successful package revision, incremented only by Package.ps1 -->
-    <BuildRevision>36</BuildRevision>
+    <BuildRevision>37</BuildRevision>
     <AssemblyVersion>$(Version).0</AssemblyVersion>
     <FileVersion>$(Version).$(BuildRevision)</FileVersion>
     <InformationalVersion>$(FileVersion)</InformationalVersion>

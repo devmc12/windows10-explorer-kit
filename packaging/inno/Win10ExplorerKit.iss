@@ -19,7 +19,7 @@ AppId={{57D60808-429A-4ABC-9303-38E819A0635A}
 AppName=Win10 Explorer Kit
 AppVersion={#AppBuildVersion}
 AppPublisher={#AppCompany}
-DefaultDirName={localappdata}\Programs\Win10ExplorerKit
+DefaultDirName={%USERPROFILE}\Programs\Win10ExplorerKit
 DisableDirPage=auto
 UsePreviousAppDir=yes
 ShowLanguageDialog=auto
@@ -97,8 +97,11 @@ Root: HKCU; Subkey: "Software\Classes\Drive\shell\Win10ExplorerKit\command"; Val
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Win10ExplorerKitHotkey"; ValueData: """{app}\Win10ExplorerKit.exe"" --hotkey"; Tasks: startup; Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\Win10ExplorerKit.exe"; Parameters: "--set-language {code:ApplicationLanguage}"; Flags: runhidden
+Filename: "{app}\Win10ExplorerKit.exe"; Parameters: "--initialize-language {code:ApplicationLanguage}"; Flags: runhidden
 Filename: "{app}\Win10ExplorerKit.exe"; Description: "{cm:Launch}"; Flags: nowait postinstall skipifsilent
+
+[UninstallRun]
+Filename: "{app}\Win10ExplorerKit.exe"; Parameters: "--clean-data"; Flags: runhidden skipifdoesntexist; RunOnceId: CleanOwnedData
 
 [Code]
 { Map the installer language to the application's locale before launching the tray }
@@ -107,10 +110,6 @@ begin
   if ActiveLanguage = 'zhcn' then Result := 'zh-CN'
   else Result := 'en';
 end;
-
-{ Read attributes without following a directory link during cleanup }
-function ReadAttributes(Path: String): LongWord;
-  external 'GetFileAttributesW@kernel32.dll stdcall';
 
 { Check the framework before attempting to run the managed application }
 function InitializeSetup(): Boolean;
@@ -140,47 +139,4 @@ begin
   if FileExists(ExpandConstant('{app}\Win10ExplorerKit.exe')) then
     Result := Exec(ExpandConstant('{app}\Win10ExplorerKit.exe'), '--shutdown', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) and (ExitCode = 0);
   if not Result then SuppressibleMsgBox(CustomMessage('StopFailed'), mbError, MB_OK, IDOK);
-end;
-
-{ Delete only an owned subtree and never follow a junction or symbolic link }
-procedure CleanOwnedTree(Path: String);
-var
-  Entry: TFindRec;
-  Child: String;
-begin
-  if not DirExists(Path) then Exit;
-  if (ReadAttributes(Path) and $400) <> 0 then Exit;
-  if FindFirst(AddBackslash(Path) + '*', Entry) then
-  try
-    repeat
-      if (Entry.Name <> '.') and (Entry.Name <> '..') then
-      begin
-        Child := AddBackslash(Path) + Entry.Name;
-        if (Entry.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
-        begin
-          if (Entry.Attributes and $400) = 0 then CleanOwnedTree(Child);
-        end
-        else DeleteFile(Child);
-      end;
-    until not FindNext(Entry);
-  finally
-    FindClose(Entry);
-  end;
-  RemoveDir(Path);
-end;
-
-{ Run cleanup after installed files and registration have been removed }
-procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
-var
-  DataPath: String;
-begin
-  if CurUninstallStep <> usPostUninstall then Exit;
-  #ifdef IntegrationTestDataDir
-  DataPath := ExpandConstant('{#IntegrationTestDataDir}');
-  #else
-  DataPath := ExpandConstant('{localappdata}\Win10ExplorerKit');
-  #endif
-  if not DirExists(DataPath) then Exit;
-  if (ReadAttributes(DataPath) and $400) <> 0 then Exit;
-  CleanOwnedTree(DataPath);
 end;

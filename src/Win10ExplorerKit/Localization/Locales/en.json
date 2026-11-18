@@ -2,7 +2,7 @@
   "language.name": "English",
   "tray.status": "Ctrl+Shift+C - File Explorer",
   "tray.language": "&Language",
-  "tray.openLog": "Open &log",
+  "tray.openLog": "Open &log folder",
   "tray.exit": "E&xit",
   "shell.copyPaths": "Copy path (Ctrl+Shift+C)",
   "error.setup": "Setup failed: {0}",

@@ -24,7 +24,14 @@ namespace Win10ExplorerKit
                     DataCleanup.Clean(AppPaths.DataDirectory);
                     return 0;
                 }
-                SettingsService settings = SettingsService.Load();
+                if (args.Length == 1 && args[0] == "--clean-data")
+                {
+                    DataCleanup.Clean(AppPaths.DataDirectory);
+                    return 0;
+                }
+                bool initialize = args.Length == 2 && args[0] == "--initialize-language";
+                SettingsService settings = SettingsService.Load(initialize ? args[1] : null);
+                if (initialize) { ShellIntegration.RefreshLabels(); return 0; }
                 if (args.Length == 2 && args[0] == "--set-language")
                 {
                     settings.SetLanguage(args[1]);

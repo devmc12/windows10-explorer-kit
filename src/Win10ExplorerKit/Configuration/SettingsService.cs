@@ -13,7 +13,7 @@ namespace Win10ExplorerKit.Configuration
     {
         // Legacy registry location read only during migration to Config.ini
         private const string LegacyRegistryPath = @"Software\Win10ExplorerKit";
-        // Per-user configuration survives application directory moves and binary updates
+        // Preferences reside beside the executable
         public static readonly string FilePath = Path.Combine(AppPaths.DataDirectory, "Config.ini");
         // Active store can point to an isolated file during configuration tests
         private readonly ConfigStore _store;
@@ -27,14 +27,16 @@ namespace Win10ExplorerKit.Configuration
         /// Loads per-user INI settings and migrates legacy language and output preferences
         /// </summary>
         /// <returns>The settings service for the current Windows user</returns>
-        public static SettingsService Load()
+        /// <param name="initialLanguage">Installer locale for a new configuration</param>
+        public static SettingsService Load(string initialLanguage = null)
         {
+            LegacyStorage.Migrate(AppPaths.LegacyDirectory, AppPaths.DataDirectory);
             string legacyLanguage = null, legacyStartup = null;
             using (RegistryKey key = Registry.CurrentUser.OpenSubKey(LegacyRegistryPath))
                 if (key != null) legacyLanguage = key.GetValue("Language") as string;
             using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run"))
                 if (key != null) legacyStartup = key.GetValue("Win10ExplorerKitHotkey") as string;
-            var settings = new SettingsService(FilePath, CultureInfo.CurrentUICulture.Name, legacyLanguage,
+            var settings = new SettingsService(FilePath, initialLanguage ?? CultureInfo.CurrentUICulture.Name, legacyLanguage,
                 legacyStartup != null && legacyStartup.IndexOf(" --plain", StringComparison.OrdinalIgnoreCase) >= 0);
             // Retire the old preference only after the INI file has been saved successfully
             if (legacyLanguage != null)

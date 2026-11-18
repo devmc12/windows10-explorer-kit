@@ -5,8 +5,11 @@ namespace Win10ExplorerKit.App
 {
     internal static class AppPaths
     {
-        // Current-user storage is separate from the installation and source directories
-        public static readonly string DataDirectory = Path.Combine(
+        // Writable directory shared by program files and runtime data
+        public static readonly string DataDirectory = AppDomain.CurrentDomain.BaseDirectory;
+
+        // Original per-user directory used during migration
+        public static readonly string LegacyDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Win10ExplorerKit");
     }
 }

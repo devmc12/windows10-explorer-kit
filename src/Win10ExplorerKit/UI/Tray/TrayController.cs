@@ -42,7 +42,11 @@ namespace Win10ExplorerKit.UI.Tray
                 _languages.DropDownItems.Add(item);
             }
             _settingsItem.Click += (sender, e) => ShowSettings();
-            _log.Click += (sender, e) => Process.Start("notepad.exe", "\"" + AppLogger.FilePath + "\"");
+            _log.Click += (sender, e) =>
+            {
+                System.IO.Directory.CreateDirectory(AppLogger.LogDirectory);
+                Process.Start(new ProcessStartInfo(AppLogger.LogDirectory) { UseShellExecute = true });
+            };
             _exit.Click += (sender, e) => exit();
             _menu.Items.AddRange(new ToolStripItem[] { _status, _settingsItem, _languages, _log, new ToolStripSeparator(), _exit });
             _image = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? (Icon)SystemIcons.Application.Clone();

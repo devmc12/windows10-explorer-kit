@@ -2,6 +2,12 @@
 
 All notable changes to Win10 Explorer Kit are documented here.
 
+## Unreleased
+
+### Changed
+
+- Keep settings and daily logs beside the executable, migrate existing data on upgrade and preserve the configured language.
+
 ## [1.0.0] - 2026-11-17
 
 ### Added

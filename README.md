@@ -26,12 +26,12 @@ Select files, then choose **Copy path (Ctrl+Shift+C)** from the context menu or 
 
 ## Settings and uninstall
 
-Tray **Settings** controls language, path quoting and login startup. Preferences are stored in `%LOCALAPPDATA%\Win10ExplorerKit\Config.ini`.
+User settings are stored in the application folder and preserved during upgrades.
 
 - **Setup edition**: uninstall through Windows Settings.
 - **ZIP edition**: run `Uninstall.cmd`, then delete the extracted folder after it succeeds.
 
-Both methods remove integration entries and automatically delete the application's settings, logs and cache.
+Both methods remove integration entries and user settings.
 
 ## Develop and package
 
