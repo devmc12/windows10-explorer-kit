@@ -6,6 +6,7 @@ namespace Win10ExplorerKit.App
     internal sealed class TrayApplicationContext : ApplicationContext
     {
         private readonly TrayController _tray;
+        private readonly FolderRecoveryService _folders;
         private readonly ExplorerHotkeyService _hotkey;
         private readonly Timer _shutdownTimer;
         private bool _disposed;
@@ -19,7 +20,8 @@ namespace Win10ExplorerKit.App
         /// <param name="forcePlain">Whether this launch overrides the saved quoting preference</param>
         public TrayApplicationContext(SettingsService settings, SingleInstance instance, bool showSettings = false, bool forcePlain = false)
         {
-            _tray = new TrayController(settings, ExitThread);
+            _folders = new FolderRecoveryService(settings);
+            _tray = new TrayController(settings, ExitThread, _folders);
             if (showSettings) _tray.ShowSettings();
             _hotkey = new ExplorerHotkeyService(
                 () => CopyPathService.PutOnClipboard(ExplorerSelection.GetSelectedPaths(), forcePlain || !settings.QuotePaths),
@@ -44,6 +46,7 @@ namespace Win10ExplorerKit.App
                 _shutdownTimer.Dispose();
                 _hotkey.Dispose();
                 _tray.Dispose();
+                _folders.Dispose();
                 AppLogger.Write("Host stopped", null);
             }
             base.Dispose(disposing);

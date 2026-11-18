@@ -15,5 +15,16 @@
   "settings.save": "保存",
   "settings.cancel": "取消",
   "error.settings": "无法保存设置，请检查运行日志。",
-  "settings.startAtLogin": "登录时启动"
+  "settings.startAtLogin": "登录时启动",
+  "settings.general": "常规",
+  "settings.folders": "文件夹恢复",
+  "folders.remember": "自动记住打开的文件夹",
+  "folders.fixed": "固定文件夹（每行一个路径）",
+  "folders.restore": "恢复上次窗口",
+  "folders.openFixed": "打开固定文件夹",
+  "folders.noFixed": "请先在设置中添加固定文件夹。",
+  "folders.noSession": "还没有可恢复的文件夹记录。",
+  "folders.skipped": "有 {0} 个文件夹未能打开。",
+  "folders.openError": "无法读取资源管理器窗口，请在资源管理器重启后重试。",
+  "folders.invalid": "请每行输入一个完整的文件夹路径。"
 }

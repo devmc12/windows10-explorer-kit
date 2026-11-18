@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using Microsoft.Win32;
+using System.Web.Script.Serialization;
 
 namespace Win10ExplorerKit.Configuration
 {
@@ -21,6 +22,8 @@ namespace Win10ExplorerKit.Configuration
         public string Language { get; private set; }
         // Persistent output format shared by hotkey and shell commands
         public bool QuotePaths { get; private set; }
+        public bool RememberFolders { get; private set; }
+        public string[] FixedFolders { get; private set; }
         public event EventHandler Changed;
 
         /// <summary>
@@ -74,6 +77,11 @@ namespace Win10ExplorerKit.Configuration
             }
             Language = TranslationService.Resolve(current.Get("General", "Language", "en"));
             QuotePaths = current.GetBoolean("Copy", "QuotePaths", true);
+            RememberFolders = current.GetBoolean("Folders", "Remember", false);
+            try { FixedFolders = FolderPaths.Distinct(new JavaScriptSerializer().Deserialize<string[]>(
+                current.Get("Folders", "Fixed", "[]"))); }
+            catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException)
+            { FixedFolders = Array.Empty<string>(); }
             TranslationService.UseLanguage(Language);
         }
 
@@ -83,6 +91,7 @@ namespace Win10ExplorerKit.Configuration
         /// <param name="options">Validated UI or command-line preferences</param>
         public void Save(AppOptions options)
         {
+            string[] folders = FolderPaths.Distinct(options.FixedFolders, true);
             string canonical = TranslationService.Resolve(options.Language);
             if (!string.Equals(canonical, options.Language, StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("Unsupported language", "options");
@@ -90,7 +99,11 @@ namespace Win10ExplorerKit.Configuration
             {
                 document.Set("General", "Language", canonical);
                 document.Set("Copy", "QuotePaths", options.QuotePaths ? "true" : "false");
+                document.Set("Folders", "Remember", options.RememberFolders ? "true" : "false");
+                document.Set("Folders", "Fixed", new JavaScriptSerializer().Serialize(folders));
             });
+            RememberFolders = options.RememberFolders;
+            FixedFolders = folders;
             Language = canonical;
             QuotePaths = options.QuotePaths;
             TranslationService.UseLanguage(canonical);
@@ -101,12 +114,26 @@ namespace Win10ExplorerKit.Configuration
         /// Updates only the selected language while retaining the current output format
         /// </summary>
         /// <param name="language">Supported locale code</param>
-        public void SetLanguage(string language) { Save(new AppOptions { Language = language, QuotePaths = QuotePaths }); }
+        public void SetLanguage(string language)
+        {
+            string selected = TranslationService.Resolve(language);
+            if (!string.Equals(selected, language, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Unsupported language", "language");
+            _store.Update(doc => doc.Set("General", "Language", selected));
+            Language = selected;
+            TranslationService.UseLanguage(selected);
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
 
         /// <summary>
         /// Updates only the output format while retaining the selected language
         /// </summary>
         /// <param name="quotePaths">Whether paths are wrapped in double quotes</param>
-        public void SetQuotePaths(bool quotePaths) { Save(new AppOptions { Language = Language, QuotePaths = quotePaths }); }
+        public void SetQuotePaths(bool quotePaths)
+        {
+            _store.Update(doc => doc.Set("Copy", "QuotePaths", quotePaths ? "true" : "false"));
+            QuotePaths = quotePaths;
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
     }
 }

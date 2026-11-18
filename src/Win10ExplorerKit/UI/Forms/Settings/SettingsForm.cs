@@ -33,6 +33,12 @@ namespace Win10ExplorerKit.UI.Forms.Settings
         private void Reload(object sender, EventArgs args)
         {
             Text = ProductInfo.Name + " — " + TranslationService.T("settings.title");
+            generalPage.Text = TranslationService.T("settings.general");
+            foldersPage.Text = TranslationService.T("settings.folders");
+            remember.Text = TranslationService.T("folders.remember");
+            foldersLabel.Text = fixedFolders.AccessibleName = TranslationService.T("folders.fixed");
+            remember.Checked = _settings.RememberFolders;
+            fixedFolders.Lines = _settings.FixedFolders;
             languageLabel.Text = TranslationService.T("settings.language");
             quotePaths.Text = TranslationService.T("settings.quotePaths");
             startAtLogin.Text = TranslationService.T("settings.startAtLogin");
@@ -57,9 +63,16 @@ namespace Win10ExplorerKit.UI.Forms.Settings
             bool enableStartup = startAtLogin.Checked;
             try
             {
-                _settings.Save(new AppOptions { Language = choice.Code, QuotePaths = quotePaths.Checked });
+                _settings.Save(new AppOptions { Language = choice.Code, QuotePaths = quotePaths.Checked,
+                    RememberFolders = remember.Checked, FixedFolders = fixedFolders.Lines });
                 _startup.SetEnabled(enableStartup);
                 Close();
+            }
+            catch (FormatException)
+            {
+                pages.SelectedTab = foldersPage;
+                MessageBox.Show(this, TranslationService.T("folders.invalid"), ProductInfo.Name);
+                fixedFolders.Focus();
             }
             catch (Exception ex) { AppLogger.Write("Settings save failed", ex); MessageBox.Show(this, TranslationService.T("error.settings"), ProductInfo.Name); }
         }

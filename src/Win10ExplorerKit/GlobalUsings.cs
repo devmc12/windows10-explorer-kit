@@ -2,6 +2,7 @@ global using Win10ExplorerKit.App;
 global using Win10ExplorerKit.Configuration;
 global using Win10ExplorerKit.Diagnostics;
 global using Win10ExplorerKit.Features.CopyPaths;
+global using Win10ExplorerKit.Features.FolderRecovery;
 global using Win10ExplorerKit.UI.Tray;
 global using Win10ExplorerKit.Windows.Clipboard;
 global using Win10ExplorerKit.Windows.Explorer;

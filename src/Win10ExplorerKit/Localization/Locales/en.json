@@ -15,5 +15,16 @@
   "settings.save": "Save",
   "settings.cancel": "Cancel",
   "error.settings": "Could not save settings. Please check the application log.",
-  "settings.startAtLogin": "Start when I sign in"
+  "settings.startAtLogin": "Start when I sign in",
+  "settings.general": "General",
+  "settings.folders": "Folder recovery",
+  "folders.remember": "Remember open folders automatically",
+  "folders.fixed": "Fixed folders (one path per line)",
+  "folders.restore": "Restore last folders",
+  "folders.openFixed": "Open fixed folders",
+  "folders.noFixed": "Add fixed folders in Settings first.",
+  "folders.noSession": "No folders have been saved yet.",
+  "folders.skipped": "Could not open {0} folder(s).",
+  "folders.openError": "Could not read the Explorer windows. Try again after Explorer restarts.",
+  "folders.invalid": "Enter one full folder path per line."
 }

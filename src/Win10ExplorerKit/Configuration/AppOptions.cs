@@ -4,5 +4,7 @@ namespace Win10ExplorerKit.Configuration
     {
         public string Language { get; set; }
         public bool QuotePaths { get; set; }
+        public bool RememberFolders { get; set; }
+        public string[] FixedFolders { get; set; }
     }
 }

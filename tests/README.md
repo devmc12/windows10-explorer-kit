@@ -7,5 +7,5 @@ clipboard contents or personal settings.
 
 Coverage includes configuration migration and concurrent writes, translation
 fallback, path formatting, AnyCPU metadata, diagnostic privacy, portable first-run
-registration, startup registration, tray popup window styles and application-data cleanup. Real Explorer
+registration, startup registration, tray popup window styles, daily log rotation, folder snapshots and application-data cleanup. Real Explorer
 interaction, login startup and native 32-bit Windows need separate verification.

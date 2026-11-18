@@ -2,7 +2,11 @@
 
 All notable changes to Win10 Explorer Kit are documented here.
 
-## Unreleased
+## [1.1.0] - 2026-11-18
+
+### Added
+
+- Optional event-driven Explorer folder snapshots, double-click tray restoration and a configurable list of fixed folders.
 
 ### Changed
 

@@ -103,10 +103,8 @@ namespace Win10ExplorerKit.Windows.Explorer
 
             try
             {
-                return string.Equals(
-                    Process.GetProcessById((int)processId).ProcessName,
-                    "explorer",
-                    StringComparison.OrdinalIgnoreCase);
+                using (var process = Process.GetProcessById((int)processId))
+                    return string.Equals(process.ProcessName, "explorer", StringComparison.OrdinalIgnoreCase);
             }
             catch (ArgumentException)
             {

@@ -4,12 +4,12 @@
 
 <p align="center"><strong>English | <a href="README.zh.md">简体中文</a></strong></p>
 
-Copy selected file and folder paths from Windows 10 File Explorer using the right-click menu or **Ctrl + Shift + C**. Multiple paths are copied one per line.
+Path copying and folder recovery for Windows 10 File Explorer.
 
-- English and Simplified Chinese, selected by the installer or detected on first ZIP launch
-- Tray **Settings** for language, path quoting and login startup; **Language** for quick language switching
-- Explorer context menu and configurable login startup
-- Licensed under [MIT](LICENSE)
+- Copy paths from the context menu or with **Ctrl + Shift + C**, with multi-selection and optional double quotes
+- Automatically remember open folders and restore them from the tray menu or by double-clicking the tray icon
+- Open a custom list of fixed folders in one action
+- Switch between English and Simplified Chinese and configure login startup
 
 ## Install
 
@@ -57,7 +57,7 @@ windows10-explorer-kit/                       # Repository root
 │   ├── App/                                  # Lifetime, single instance and cleanup
 │   ├── Configuration/                        # Typed settings and INI persistence
 │   ├── Diagnostics/                          # Application logging
-│   ├── Features/CopyPaths/                   # Path formatting and copy operations
+│   ├── Features/                             # Path copying and folder recovery
 │   ├── Windows/                              # Explorer, startup, hotkeys and native APIs
 │   ├── UI/                                   # Tray menus and settings forms
 │   ├── Localization/                         # Translation service and JSON locales

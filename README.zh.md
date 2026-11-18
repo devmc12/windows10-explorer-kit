@@ -4,12 +4,12 @@
 
 <p align="center"><strong><a href="README.md">English</a> | 简体中文</strong></p>
 
-为 Windows 10 文件资源管理器提供右键复制路径和 **Ctrl + Shift + C** 快捷键，多选路径每行一条。
+为 Windows 10 文件资源管理器提供路径复制与文件夹恢复功能。
 
-- 支持英文、简体中文；安装版跟随安装器选择，ZIP 版首次运行检测系统语言
-- 托盘菜单 **Settings（设置）** 可调整语言、路径双引号和登录自启，**Language（语言）** 可快速切换语言
-- 资源管理器右键菜单与可配置的登录自启
-- 采用 [MIT 许可证](LICENSE)
+- 右键菜单或 **Ctrl + Shift + C** 复制路径，支持多选和双引号设置
+- 自动记住打开的文件夹，通过托盘菜单或双击托盘图标恢复
+- 自定义固定文件夹列表，一键批量打开
+- 支持英文、简体中文切换和可配置的登录自启
 
 ## 安装使用
 
@@ -57,7 +57,7 @@ windows10-explorer-kit/                       # 项目根目录
 │   ├── App/                                  # 生命周期、单实例与数据清理
 │   ├── Configuration/                        # 配置模型与 INI 读写
 │   ├── Diagnostics/                          # 应用日志
-│   ├── Features/CopyPaths/                   # 路径格式化与复制功能
+│   ├── Features/                             # 路径复制与文件夹恢复
 │   ├── Windows/                              # 资源管理器、自启、热键及原生 API
 │   ├── UI/                                   # 托盘菜单与设置窗口
 │   ├── Localization/                         # 翻译服务与 JSON 语言文件

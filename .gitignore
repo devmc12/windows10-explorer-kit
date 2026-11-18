@@ -10,6 +10,8 @@ artifacts/
 *.exe
 *.pdb
 Config.ini
+FolderSession.json
+FolderSession.json.tmp
 test-local-*
 TestResults/
 .env

@@ -6,6 +6,21 @@ namespace Win10ExplorerKit.Windows.Interop
 {
     internal static class NativeMethods
     {
+        /// <summary>Queues a notification on the window's owning thread</summary>
+        /// <param name="window">Recipient handle</param>
+        /// <param name="message">Native message identifier</param>
+        /// <param name="wParam">First message parameter</param>
+        /// <param name="lParam">Second message parameter</param>
+        /// <returns>Whether the message was queued</returns>
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern bool PostMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam);
+
+        /// <summary>Obtains the broadcast identifier shared with the Windows taskbar</summary>
+        /// <param name="name">Registered message name</param>
+        /// <returns>System-wide message identifier</returns>
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern int RegisterWindowMessage(string name);
+
         /// <summary>
         /// Activates a tray popup so clicks outside it dismiss the menu normally
         /// </summary>

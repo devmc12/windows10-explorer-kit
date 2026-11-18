@@ -13,6 +13,8 @@ namespace Win10ExplorerKit.App
         {
             if (!CanEnter(directory)) return;
             File.Delete(Path.Combine(directory, "Config.ini"));
+            File.Delete(Path.Combine(directory, FolderSession.FileName));
+            File.Delete(Path.Combine(directory, FolderSession.FileName + ".tmp"));
             string logs = Path.Combine(directory, "logs");
             if (!CanEnter(logs)) return;
             foreach (string file in Directory.EnumerateFiles(logs, "*.log"))
