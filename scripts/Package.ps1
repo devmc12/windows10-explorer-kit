@@ -3,8 +3,10 @@
 Builds versioned Setup.exe and Portable.zip artifacts for manual release upload
 .PARAMETER InnoCompiler
 Optional path to a locally installed ISCC.exe
+.PARAMETER SkipTests
+Builds packages without running the automated test suites
 #>
-param([string]$InnoCompiler)
+param([string]$InnoCompiler, [switch]$SkipTests)
 . (Join-Path $PSScriptRoot 'Common.ps1')
 $root = Split-Path -Parent $PSScriptRoot
 # Hold the counter lock for the entire build so concurrent packages cannot reuse a revision
@@ -36,10 +38,14 @@ try {
     try {
         Write-Host "Packaging build $fileVersion"
         & (Join-Path $PSScriptRoot 'Build.ps1') -BuildRevision $revision
-        & (Join-Path $PSScriptRoot 'Test.ps1') -BuildRevision $revision
-        & (Join-Path $PSScriptRoot 'Test.ps1') -Platform x86 -BuildRevision $revision
+        if (-not $SkipTests) {
+            & (Join-Path $PSScriptRoot 'Test.ps1') -BuildRevision $revision
+            & (Join-Path $PSScriptRoot 'Test.ps1') -Platform x86 -BuildRevision $revision
+        }
         $build = Join-Path $root 'src\Win10ExplorerKit\bin\Release\net48'
-        foreach ($file in @('Win10ExplorerKit.exe','Win10ExplorerKit.exe.config')) {
+        foreach ($file in @('Win10ExplorerKit.exe','Win10ExplorerKit.exe.config',
+            'Win10ExplorerKit.HashHost.x86.exe','Win10ExplorerKit.HashHost.x86.exe.config',
+            'Win10ExplorerKit.HashHost.x64.exe','Win10ExplorerKit.HashHost.x64.exe.config')) {
             Copy-Item -LiteralPath (Join-Path $build $file) -Destination $stage
         }
         $applicationInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $build 'Win10ExplorerKit.exe'))
@@ -48,6 +54,19 @@ try {
         }
         if ($applicationInfo.CompanyName -ne $company) {
             throw 'Application company does not match Directory.Build.props'
+        }
+        # Reject AnyCPU output for the 64-bit COM host before publishing a broken package
+        foreach ($architecture in @('x86','x64')) {
+            $hostPath = Join-Path $stage "Win10ExplorerKit.HashHost.$architecture.exe"
+            $hostInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo($hostPath)
+            if ($hostInfo.FileVersion -ne $fileVersion -or $hostInfo.CompanyName -ne $company) {
+                throw "Hash host metadata differs from the application: $architecture"
+            }
+            $bytes = [IO.File]::ReadAllBytes($hostPath)
+            $peOffset = [BitConverter]::ToInt32($bytes, 0x3c)
+            $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+            $expectedMachine = if ($architecture -eq 'x64') { 0x8664 } else { 0x014c }
+            if ($machine -ne $expectedMachine) { throw "Incorrect COM host architecture: $architecture" }
         }
         New-Item -ItemType Directory -Path (Join-Path $stage 'locales'),(Join-Path $stage 'licenses') -Force | Out-Null
         foreach ($locale in @('en.json','zh-CN.json')) {

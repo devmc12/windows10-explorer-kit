@@ -24,6 +24,8 @@ namespace Win10ExplorerKit.Configuration
         public bool QuotePaths { get; private set; }
         public bool RememberFolders { get; private set; }
         public string[] FixedFolders { get; private set; }
+        public string HashAlgorithm { get; private set; }
+        public int HashParallelism { get; private set; }
         public event EventHandler Changed;
 
         /// <summary>
@@ -82,6 +84,10 @@ namespace Win10ExplorerKit.Configuration
                 current.Get("Folders", "Fixed", "[]"))); }
             catch (Exception ex) when (ex is ArgumentException || ex is InvalidOperationException)
             { FixedFolders = Array.Empty<string>(); }
+            string hash = current.Get("Hash", "Algorithm", "SHA-256");
+            HashAlgorithm = Array.IndexOf(Features.FileHash.FileHasher.Algorithms, hash) >= 0 ? hash : "SHA-256";
+            int.TryParse(current.Get("Hash", "Parallelism", "2"), out int parallelism);
+            HashParallelism = parallelism == 1 || parallelism == 4 ? parallelism : 2;
             TranslationService.UseLanguage(Language);
         }
 
@@ -108,6 +114,22 @@ namespace Win10ExplorerKit.Configuration
             QuotePaths = options.QuotePaths;
             TranslationService.UseLanguage(canonical);
             if (Changed != null) Changed(this, EventArgs.Empty);
+        }
+
+        /// <summary>Persists hash preferences without overwriting other windows' settings</summary>
+        /// <param name="algorithm">Supported hash algorithm</param>
+        /// <param name="parallelism">Maximum concurrent readers</param>
+        public void SetHashOptions(string algorithm, int parallelism)
+        {
+            if (Array.IndexOf(Features.FileHash.FileHasher.Algorithms, algorithm) < 0 ||
+                (parallelism != 1 && parallelism != 2 && parallelism != 4)) throw new ArgumentException("Invalid hash options");
+            _store.Update(document =>
+            {
+                document.Set("Hash", "Algorithm", algorithm);
+                document.Set("Hash", "Parallelism", parallelism.ToString(CultureInfo.InvariantCulture));
+            });
+            HashAlgorithm = algorithm;
+            HashParallelism = parallelism;
         }
 
         /// <summary>

@@ -2,6 +2,18 @@
 
 All notable changes to Win10 Explorer Kit are documented here.
 
+## [1.2.0] - 2026-11-18
+
+### Added
+
+- Explorer hash command for multi-selected files and folders, expanding only first-level files and removing duplicate paths.
+- MD5, SHA-1, SHA-256 and SHA-512 with bounded parallel processing, progress and cancellation.
+- A shared results window with file/folder drag-and-drop, click-to-copy hashes, bulk checksum copying and saved algorithm and concurrency preferences.
+
+### Fixed
+
+- Hash-menu cold-start timeouts on 64-bit Windows by using native COM launchers and registering both registry views.
+
 ## [1.1.0] - 2026-11-18
 
 ### Added

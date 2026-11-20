@@ -16,5 +16,7 @@
     <EmbeddedResource Include="Localization\Locales\*.json" LogicalName="locales.%(Filename)%(Extension)" />
     <Content Include="Localization\Locales\*.json" Link="locales\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <InternalsVisibleTo Include="Win10ExplorerKit.Tests" />
+    <InternalsVisibleTo Include="Win10ExplorerKit.HashHost.x86" />
+    <InternalsVisibleTo Include="Win10ExplorerKit.HashHost.x64" />
   </ItemGroup>
 </Project>

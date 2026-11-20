@@ -4,11 +4,12 @@
 
 <p align="center"><strong>English | <a href="README.zh.md">简体中文</a></strong></p>
 
-Path copying and folder recovery for Windows 10 File Explorer.
+Path copying, folder recovery and file hashing for Windows 10 File Explorer.
 
 - Copy paths from the context menu or with **Ctrl + Shift + C**, with multi-selection and optional double quotes
 - Automatically remember open folders and restore them from the tray menu or by double-clicking the tray icon
 - Open a custom list of fixed folders in one action
+- Calculate MD5, SHA-1, SHA-256 or SHA-512 from the context menu or by drag-and-drop
 - Switch between English and Simplified Chinese and configure login startup
 
 ## Install
@@ -49,41 +50,44 @@ If needed, pass `-InnoCompiler '<path-to-ISCC.exe>'` to the packaging script. Bu
 ## Project structure
 
 ```text
-windows10-explorer-kit/                       # Repository root
-├── src/Win10ExplorerKit/                     # Windows desktop application
-│   ├── Win10ExplorerKit.csproj               # Application project and runtime target
-│   ├── Program.cs                            # Command routing and application entry
-│   ├── app.manifest                          # Windows permissions and DPI settings
-│   ├── App/                                  # Lifetime, single instance and cleanup
-│   ├── Configuration/                        # Typed settings and INI persistence
-│   ├── Diagnostics/                          # Application logging
-│   ├── Features/                             # Path copying and folder recovery
-│   ├── Windows/                              # Explorer, startup, hotkeys and native APIs
-│   ├── UI/                                   # Tray menus and settings forms
-│   ├── Localization/                         # Translation service and JSON locales
-│   └── Resources/                            # App icons and Config.example.ini
-├── tests/Win10ExplorerKit.Tests/             # Isolated automated tests and fixtures
-├── scripts/                                  # Build tooling
-│   ├── Common.ps1                            # Shared SDK discovery
-│   ├── Build.ps1                             # Build the solution
-│   ├── Test.ps1                              # Run tests in x64 or x86 processes
-│   └── Package.ps1                           # Create packages and SHA-256 checksums
-├── packaging/                                # Distribution definitions
-│   ├── inno/Win10ExplorerKit.iss             # Setup and uninstall behavior
-│   ├── inno/Languages/                       # Upstream installer translations
-│   ├── inno/INNO-LICENSE.txt                 # Inno Setup license
-│   └── portable/                             # Portable marker and cleanup script
-├── artifacts/<version>/                      # Generated release files, ignored by Git
-├── Win10ExplorerKit.sln                      # Solution containing app and tests
-├── Directory.Build.props                     # Shared build settings and version
-├── global.json                               # .NET SDK selection
-├── NuGet.Config                              # Package restore sources
-├── .gitignore                                # Local files and build output exclusions
-├── AGENTS.md                                 # Development and maintenance conventions
-├── README.md / README.zh.md                  # English and Chinese documentation
-├── CHANGELOG.md                              # Release history
-├── LICENSE                                   # Project MIT license
-└── THIRD-PARTY-NOTICES.md                    # Third-party attribution and licenses
+windows10-explorer-kit/                      # Repository root
+├── src/Win10ExplorerKit/                    # Windows desktop application
+│   ├── Win10ExplorerKit.csproj              # Application project and runtime target
+│   ├── Program.cs                           # Command routing and application entry
+│   ├── app.manifest                         # Windows permissions and DPI settings
+│   ├── App/                                 # Lifetime, single instance and cleanup
+│   ├── Configuration/                       # Typed settings and INI persistence
+│   ├── Diagnostics/                         # Application logging
+│   ├── Features/                            # Path copying, folder recovery and hashing
+│   ├── Windows/                             # Explorer, startup, hotkeys and native APIs
+│   ├── UI/                                  # Tray menus and application windows
+│   ├── Localization/                        # Translation service and JSON locales
+│   └── Resources/                           # App icons and Config.example.ini
+├── src/Win10ExplorerKit.HashHost/            # Native x86/x64 COM launchers
+├── tests/                                   # Automated tests and integration checks
+│   ├── Win10ExplorerKit.Tests/              # Isolated unit and window tests
+│   └── ShellSmoke/                          # Native menu and x64/x86 COM checks
+├── scripts/                                 # Build tooling
+│   ├── Common.ps1                           # Shared SDK discovery
+│   ├── Build.ps1                            # Build the solution
+│   ├── Test.ps1                             # Run tests in x64 or x86 processes
+│   └── Package.ps1                          # Create packages and SHA-256 checksums
+├── packaging/                               # Distribution definitions
+│   ├── inno/Win10ExplorerKit.iss            # Setup and uninstall behavior
+│   ├── inno/Languages/                      # Upstream installer translations
+│   ├── inno/INNO-LICENSE.txt                # Inno Setup license
+│   └── portable/                            # Portable marker and cleanup script
+├── artifacts/<version>/                     # Generated release files, ignored by Git
+├── Win10ExplorerKit.sln                     # Solution containing app and tests
+├── Directory.Build.props                    # Shared build settings and version
+├── global.json                              # .NET SDK selection
+├── NuGet.Config                             # Package restore sources
+├── .gitignore                               # Local files and build output exclusions
+├── AGENTS.md                                # Development and maintenance conventions
+├── README.md / README.zh.md                 # English and Chinese documentation
+├── CHANGELOG.md                             # Release history
+├── LICENSE                                  # Project MIT license
+└── THIRD-PARTY-NOTICES.md                   # Third-party attribution and licenses
 ```
 
 Configure the version and publisher in `Directory.Build.props`; the build number increments automatically when packaging.

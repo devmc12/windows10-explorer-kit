@@ -1,37 +1,73 @@
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
+using System.Runtime.InteropServices;
+using Win10ExplorerKit.App.Hashing;
 
 namespace Win10ExplorerKit
 {
     internal static class Program
     {
+        /// <summary>Stops both tray and on-demand hash processes before maintenance</summary>
+        /// <returns>Whether all owned processes released their files</returns>
+        private static bool StopHosts()
+        {
+            bool tray = SingleInstance.RequestStop();
+            bool hash = SingleInstance.RequestStop("Hash");
+            return tray && hash;
+        }
+
         /// <summary>
         /// Routes maintenance and copy commands before entering the tray message loop
         /// </summary>
         /// <param name="args">Command-line switches and selected paths</param>
         /// <returns>Zero on success, one for invalid input, or two on failure</returns>
         [STAThread]
-        private static int Main(string[] args)
+        internal static int Main(string[] args)
         {
             try
             {
-                if (Array.IndexOf(args, "--shutdown") >= 0) return SingleInstance.RequestStop() ? 0 : 2;
+                if (Array.IndexOf(args, "--shutdown") >= 0) return StopHosts() ? 0 : 2;
                 if (Array.IndexOf(args, "--uninstall") >= 0)
                 {
-                    if (!SingleInstance.RequestStop()) return 2;
+                    if (!StopHosts()) return 2;
                     ShellIntegration.Uninstall();
                     DataCleanup.Clean(AppPaths.DataDirectory);
                     return 0;
                 }
                 if (args.Length == 1 && args[0] == "--clean-data")
                 {
+                    if (!StopHosts()) return 2;
+                    HashShellRegistration.Uninstall();
                     DataCleanup.Clean(AppPaths.DataDirectory);
                     return 0;
                 }
+                bool hashServer = Array.IndexOf(args, "--hash-server") >= 0;
+                if (hashServer) AppLogger.Write("Hash host starting", null);
                 bool initialize = args.Length == 2 && args[0] == "--initialize-language";
                 SettingsService settings = SettingsService.Load(initialize ? args[1] : null);
                 if (initialize) { ShellIntegration.RefreshLabels(); return 0; }
+                if (args.Length == 1 && args[0] == "--register-hash")
+                {
+                    HashShellRegistration.Install();
+                    return 0;
+                }
+                if (hashServer)
+                {
+                    Marshal.ThrowExceptionForHR(HashComNative.OleInitialize(IntPtr.Zero));
+                    try
+                    {
+                        using (var owner = new SingleInstance("Hash"))
+                        {
+                            if (!owner.IsOwner) { AppLogger.Write("Hash host already running", null); return 0; }
+                            Application.EnableVisualStyles();
+                            Application.SetCompatibleTextRenderingDefault(false);
+                            using (var host = new HashApplicationContext(settings, owner)) Application.Run(host);
+                        }
+                    }
+                    finally { HashComNative.OleUninitialize(); AppLogger.Write("Hash host stopped", null); }
+                    return 0;
+                }
                 if (args.Length == 2 && args[0] == "--set-language")
                 {
                     settings.SetLanguage(args[1]);
@@ -58,7 +94,7 @@ namespace Win10ExplorerKit
                 {
                     if (!instance.IsOwner) return 0;
                     PortableSetup.EnsureRegistered(AppDomain.CurrentDomain.BaseDirectory,
-                        SettingsService.FilePath, Application.ExecutablePath, ShellIntegration.Install);
+                        SettingsService.FilePath, Application.ExecutablePath, ShellIntegration.Install, HashShellRegistration.Install);
                     Application.EnableVisualStyles();
                     Application.SetCompatibleTextRenderingDefault(false);
                     Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);

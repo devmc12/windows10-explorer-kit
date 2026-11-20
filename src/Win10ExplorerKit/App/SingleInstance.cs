@@ -9,18 +9,20 @@ namespace Win10ExplorerKit.App
         private const string MutexName = @"Local\Win10ExplorerKit.Hotkey";
         // Graceful shutdown signal consumed by the tray's message loop
         private const string StopEventName = @"Local\Win10ExplorerKit.Stop";
-        private readonly Mutex _mutex = new Mutex(false, MutexName);
+        private readonly Mutex _mutex;
         private readonly EventWaitHandle _stop;
         public bool IsOwner { get; private set; }
 
         /// <summary>
         /// Acquires host ownership without blocking another running instance
         /// </summary>
-        public SingleInstance()
+        /// <param name="role">Optional independent application role</param>
+        public SingleInstance(string role = "")
         {
+            _mutex = new Mutex(false, MutexName + role);
             try { IsOwner = _mutex.WaitOne(0); }
             catch (AbandonedMutexException) { IsOwner = true; }
-            if (IsOwner) _stop = new EventWaitHandle(false, EventResetMode.ManualReset, StopEventName);
+            if (IsOwner) _stop = new EventWaitHandle(false, EventResetMode.ManualReset, StopEventName + role);
         }
 
         /// <summary>
@@ -33,11 +35,12 @@ namespace Win10ExplorerKit.App
         /// Requests shutdown and waits for ownership to be released before uninstalling
         /// </summary>
         /// <returns>True if no host remains after the bounded wait</returns>
-        public static bool RequestStop()
+        /// <param name="role">Optional independent application role</param>
+        public static bool RequestStop(string role = "")
         {
-            try { using (var stop = EventWaitHandle.OpenExisting(StopEventName)) stop.Set(); }
+            try { using (var stop = EventWaitHandle.OpenExisting(StopEventName + role)) stop.Set(); }
             catch (WaitHandleCannotBeOpenedException) { }
-            using (var mutex = new Mutex(false, MutexName))
+            using (var mutex = new Mutex(false, MutexName + role))
             {
                 bool acquired;
                 try { acquired = mutex.WaitOne(5000); }

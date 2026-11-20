@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <HashHostArchitecture Condition="'$(HashHostArchitecture)' == ''">x86</HashHostArchitecture>
+    <!-- COM activation requires the PE architecture to match the running process -->
+    <PlatformTarget>$(HashHostArchitecture)</PlatformTarget>
+    <AssemblyName>Win10ExplorerKit.HashHost.$(HashHostArchitecture)</AssemblyName>
+    <OutputPath>bin\$(Configuration)\$(HashHostArchitecture)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Configuration)\$(HashHostArchitecture)\</IntermediateOutputPath>
+    <ApplicationIcon>..\Win10ExplorerKit\Resources\app.ico</ApplicationIcon>
+    <ApplicationManifest>..\Win10ExplorerKit\app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Win10ExplorerKit\Win10ExplorerKit.csproj" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+  </ItemGroup>
+</Project>

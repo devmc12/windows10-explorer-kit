@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Win10ExplorerKit.App;
+using Win10ExplorerKit.Configuration;
 
 namespace Win10ExplorerKit.Tests.App
 {
@@ -9,6 +10,44 @@ namespace Win10ExplorerKit.Tests.App
     public class PortableSetupTests
     {
         private string _directory;
+
+        /// <summary>Migrates existing portable hash registration without changing startup preferences</summary>
+        [TestMethod]
+        public void UpgradesAnyCpuHashRegistrationToNativeHosts()
+        {
+            string config = Path.Combine(_directory, "Config.ini");
+            string executable = Path.Combine(_directory, "Win10ExplorerKit.exe");
+            File.WriteAllText(Path.Combine(_directory, "portable.flag"), "portable");
+            var store = new ConfigStore(config);
+            store.Update(document =>
+            {
+                document.Set("Integration", "PortablePath", executable);
+                document.Set("Integration", "HashRegistration", "1");
+                document.Set("Hash", "Algorithm", "MD5");
+            });
+            int registrations = 0, upgrades = 0;
+            PortableSetup.EnsureRegistered(_directory, config, executable, () => registrations++, () => upgrades++);
+            PortableSetup.EnsureRegistered(_directory, config, executable, () => registrations++, () => upgrades++);
+            Assert.AreEqual(0, registrations);
+            Assert.AreEqual(1, upgrades);
+            Assert.AreEqual("2", store.Read().Get("Integration", "HashRegistration", null));
+            Assert.AreEqual("MD5", store.Read().Get("Hash", "Algorithm", null));
+        }
+
+        /// <summary>Upgrades hash registration once without re-enabling startup</summary>
+        [TestMethod]
+        public void UpgradesHashRegistrationIndependently()
+        {
+            string config = Path.Combine(_directory, "Config.ini");
+            string executable = Path.Combine(_directory, "Win10ExplorerKit.exe");
+            File.WriteAllText(Path.Combine(_directory, "portable.flag"), "portable");
+            int registrations = 0, upgrades = 0;
+            PortableSetup.EnsureRegistered(_directory, config, executable, () => registrations++);
+            PortableSetup.EnsureRegistered(_directory, config, executable, () => registrations++, () => upgrades++);
+            PortableSetup.EnsureRegistered(_directory, config, executable, () => registrations++, () => upgrades++);
+            Assert.AreEqual(1, registrations);
+            Assert.AreEqual(1, upgrades);
+        }
 
         /// <summary>
         /// Creates isolated portable files without touching real shell registration

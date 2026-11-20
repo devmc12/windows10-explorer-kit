@@ -30,9 +30,10 @@ namespace Win10ExplorerKit.UI.Forms.Settings
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            pages = new TabControl { Location = new Point(12, 12), Size = new Size(444, 230), TabIndex = 0 };
-            generalPage = new TabPage { UseVisualStyleBackColor = true };
-            foldersPage = new TabPage { UseVisualStyleBackColor = true };
+            pages = new TabControl { Location = new Point(12, 12), Size = new Size(444, 230),
+                Font = new Font("Segoe UI", 9F), TabIndex = 0 };
+            generalPage = new TabPage { UseVisualStyleBackColor = true, Font = Font };
+            foldersPage = new TabPage { UseVisualStyleBackColor = true, Font = Font };
             pages.TabPages.AddRange(new[] { generalPage, foldersPage });
             remember = new CheckBox { Location = new Point(14, 10), Size = new Size(404, 28), TabIndex = 0 };
             foldersLabel = new Label { Location = new Point(14, 48), Size = new Size(404, 23), TabIndex = 1 };

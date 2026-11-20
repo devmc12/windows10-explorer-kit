@@ -35,6 +35,7 @@ namespace Win10ExplorerKit.Windows.Explorer
                     }
                 }
             }
+            HashShellRegistration.Install();
             new StartupRegistration(Application.ExecutablePath).SetEnabled(true);
             RefreshLabels();
         }
@@ -44,6 +45,7 @@ namespace Win10ExplorerKit.Windows.Explorer
         /// </summary>
         public static void RefreshLabels()
         {
+            HashShellRegistration.RefreshLabels();
             string label = TranslationService.T("shell.copyPaths");
             foreach (string path in MenuRoots)
             {
@@ -62,6 +64,7 @@ namespace Win10ExplorerKit.Windows.Explorer
         /// </summary>
         public static void Uninstall()
         {
+            HashShellRegistration.Uninstall();
             foreach (string path in MenuRoots)
             {
                 Registry.CurrentUser.DeleteSubKeyTree(path, false);
