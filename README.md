@@ -7,10 +7,11 @@
 Path copying, folder recovery and file hashing for Windows 10 File Explorer.
 
 - Copy paths from the context menu or with **Ctrl + Shift + C**, with multi-selection and optional double quotes
-- Automatically remember open folders and restore them from the tray menu or by double-clicking the tray icon
+- Automatically remember open folders and restore them from the tray menu
 - Open a custom list of fixed folders in one action
 - Calculate MD5, SHA-1, SHA-256 or SHA-512 from the context menu or by drag-and-drop
 - Switch between English and Simplified Chinese and configure login startup
+- Choose system, light or dark appearance
 
 ## Install
 
@@ -23,7 +24,7 @@ Requires **Windows 10 x86/x64** and [.NET Framework 4.8 or later](https://dotnet
 
 The ZIP edition registers the Explorer menu and login startup on its first launch.
 
-Select files, then choose **Copy path (Ctrl+Shift+C)** from the context menu or press **Ctrl + Shift + C**. Left-click or right-click the tray icon to open its menu.
+Select files, then choose **Copy path (Ctrl+Shift+C)** from the context menu or press **Ctrl + Shift + C**. Left-click the tray icon to open the window; right-click to open its menu.
 
 ## Settings and uninstall
 
@@ -50,44 +51,47 @@ If needed, pass `-InnoCompiler '<path-to-ISCC.exe>'` to the packaging script. Bu
 ## Project structure
 
 ```text
-windows10-explorer-kit/                      # Repository root
-├── src/Win10ExplorerKit/                    # Windows desktop application
-│   ├── Win10ExplorerKit.csproj              # Application project and runtime target
-│   ├── Program.cs                           # Command routing and application entry
-│   ├── app.manifest                         # Windows permissions and DPI settings
-│   ├── App/                                 # Lifetime, single instance and cleanup
-│   ├── Configuration/                       # Typed settings and INI persistence
-│   ├── Diagnostics/                         # Application logging
-│   ├── Features/                            # Path copying, folder recovery and hashing
-│   ├── Windows/                             # Explorer, startup, hotkeys and native APIs
-│   ├── UI/                                  # Tray menus and application windows
-│   ├── Localization/                        # Translation service and JSON locales
-│   └── Resources/                           # App icons and Config.example.ini
-├── src/Win10ExplorerKit.HashHost/            # Native x86/x64 COM launchers
-├── tests/                                   # Automated tests and integration checks
-│   ├── Win10ExplorerKit.Tests/              # Isolated unit and window tests
-│   └── ShellSmoke/                          # Native menu and x64/x86 COM checks
-├── scripts/                                 # Build tooling
-│   ├── Common.ps1                           # Shared SDK discovery
-│   ├── Build.ps1                            # Build the solution
-│   ├── Test.ps1                             # Run tests in x64 or x86 processes
-│   └── Package.ps1                          # Create packages and SHA-256 checksums
-├── packaging/                               # Distribution definitions
-│   ├── inno/Win10ExplorerKit.iss            # Setup and uninstall behavior
-│   ├── inno/Languages/                      # Upstream installer translations
-│   ├── inno/INNO-LICENSE.txt                # Inno Setup license
-│   └── portable/                            # Portable marker and cleanup script
-├── artifacts/<version>/                     # Generated release files, ignored by Git
-├── Win10ExplorerKit.sln                     # Solution containing app and tests
-├── Directory.Build.props                    # Shared build settings and version
-├── global.json                              # .NET SDK selection
-├── NuGet.Config                             # Package restore sources
-├── .gitignore                               # Local files and build output exclusions
-├── AGENTS.md                                # Development and maintenance conventions
-├── README.md / README.zh.md                 # English and Chinese documentation
-├── CHANGELOG.md                             # Release history
-├── LICENSE                                  # Project MIT license
-└── THIRD-PARTY-NOTICES.md                   # Third-party attribution and licenses
+windows10-explorer-kit/                     # Repository root
+├── src/Win10ExplorerKit/                   # WPF desktop application
+│   ├── packages.lock.json                  # Locked dependency versions
+│   ├── Win10ExplorerKit.csproj             # Application project and runtime target
+│   ├── App.xaml                            # WPF UI themes and shared resources
+│   ├── Program.cs                          # Command routing and application entry
+│   ├── app.manifest                        # Windows permissions and DPI settings
+│   ├── App/                                # Lifetime, single instance and cleanup
+│   ├── Configuration/                      # Typed settings and INI persistence
+│   ├── Diagnostics/                        # Application logging
+│   ├── Features/                           # Path copying, folder recovery and hashing
+│   ├── Windows/                            # Explorer, startup, hotkeys and native APIs
+│   ├── UI/                                 # WPF views, view models and tray
+│   ├── Localization/                       # Translation service and JSON locales
+│   └── Resources/                          # App icons and Config.example.ini
+├── src/Win10ExplorerKit.HashHost/          # Native x86/x64 selection forwarders
+├── tests/                                  # Automated tests and integration checks
+│   ├── Win10ExplorerKit.Tests/             # Isolated unit and view-model tests
+│   └── ShellSmoke/                         # Native menu and x64/x86 COM checks
+├── scripts/                                # Build tooling
+│   ├── Common.ps1                          # Shared SDK discovery
+│   ├── Build.ps1                           # Build the solution
+│   ├── Test.ps1                            # Run tests in x64 or x86 processes
+│   └── Package.ps1                         # Create packages and SHA-256 checksums
+├── packaging/                              # Distribution definitions
+│   ├── inno/Win10ExplorerKit.iss           # Setup and uninstall behavior
+│   ├── inno/Languages/                     # Upstream installer translations
+│   ├── inno/INNO-LICENSE.txt               # Inno Setup license
+│   ├── licenses/                           # UI and runtime-library licenses
+│   └── portable/                           # Portable marker and cleanup script
+├── artifacts/<version>/                    # Generated release files, ignored by Git
+├── Win10ExplorerKit.sln                    # Solution containing app and tests
+├── Directory.Build.props                   # Shared build settings and version
+├── global.json                             # .NET SDK selection
+├── NuGet.Config                            # Package restore sources
+├── .gitignore                              # Local files and build output exclusions
+├── AGENTS.md                               # Development and maintenance conventions
+├── README.md / README.zh.md                # English and Chinese documentation
+├── CHANGELOG.md                            # Release history
+├── LICENSE                                 # Project MIT license
+└── THIRD-PARTY-NOTICES.md                  # Third-party attribution and licenses
 ```
 
 Configure the version and publisher in `Directory.Build.props`; the build number increments automatically when packaging.

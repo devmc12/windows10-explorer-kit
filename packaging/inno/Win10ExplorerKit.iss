@@ -75,13 +75,14 @@ Source: "{#SourceDir}\Win10ExplorerKit.exe"; DestDir: "{app}"; Flags: ignorevers
 Source: "{#SourceDir}\Win10ExplorerKit.exe.config"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\Win10ExplorerKit.HashHost.*.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\Win10ExplorerKit.HashHost.*.exe.config"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\*.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\locales\*.json"; DestDir: "{app}\locales"; Flags: ignoreversion
 Source: "{#SourceDir}\README*.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\CHANGELOG.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\assets\app.png"; DestDir: "{app}\assets"; Flags: ignoreversion
-Source: "{#SourceDir}\licenses\Inno-Setup.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
+Source: "{#SourceDir}\licenses\*.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Win10 Explorer Kit"; Filename: "{app}\Win10ExplorerKit.exe"

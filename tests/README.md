@@ -7,9 +7,10 @@ clipboard contents or personal settings.
 
 Coverage includes configuration migration and concurrent writes, translation
 fallback, path formatting, AnyCPU metadata, diagnostic privacy, portable first-run
-registration, startup registration, tray popup window styles, daily log rotation,
+registration, startup registration, theme persistence, daily log rotation,
 folder snapshots, application-data cleanup and file hashing (known vectors,
-first-level expansion, deduplication, parallel batches, cancellation and failures). Real Explorer
+folder-depth expansion, deduplication, parallel batches, cancellation and failures),
+and dispatcher-owned hash view models. Real Explorer
 interaction, login startup and native 32-bit Windows need separate verification.
 
 Optional Shell integration check after building:
@@ -18,12 +19,16 @@ Optional Shell integration check after building:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\ShellSmoke\Invoke-Smoke.ps1
 ```
 
-This opens an isolated hash window, checks x64/x86 COM clients and a native
-mixed-selection context menu, then removes its temporary registry entries and
-stops its host. Use `-Count 10000` for a larger batch or `-Language zh-CN` for the
-Chinese window. Reports and a screenshot stay under `.work/shell-smoke-*/`.
+This runs an isolated COM selection forwarder and WPF dispatcher model, checks
+x64/x86 COM clients and a native mixed-selection context menu, then removes its
+temporary registry entries and stops its host. It does not open the installed
+application or use its activation channel. Reports stay under `.work/shell-smoke-*/`.
 
-To verify a registered installation or portable directory, close its hash window
-and run `tests/ShellSmoke/Invoke-InstalledSmoke.ps1 -ApplicationDirectory <directory>`.
-This uses the shipped EXEs and real context-menu registration, checks cold starts
-from both client architectures, and closes each completed test window.
+For a registered installation, exit the application and run
+`tests/ShellSmoke/Invoke-InstalledSmoke.ps1 -ApplicationDirectory <directory>`.
+It invokes the real menu and reads the WPF completion summary through UI Automation.
+The second client verifies reuse of the shared host. Closing the window hides it;
+exit the application explicitly after the check.
+
+Manual checks cover tray popup behavior, Explorer restart, drag-and-drop,
+light/dark themes, language switching and 100%–200% display scaling.

@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using Microsoft.Win32;
 using System.Web.Script.Serialization;
+using Win10ExplorerKit.Features.FileHash;
 
 namespace Win10ExplorerKit.Configuration
 {
@@ -20,12 +21,14 @@ namespace Win10ExplorerKit.Configuration
         private readonly ConfigStore _store;
         // Canonical locale code resolved from saved settings or first-run system language
         public string Language { get; private set; }
+        public string Theme { get; private set; }
         // Persistent output format shared by hotkey and shell commands
         public bool QuotePaths { get; private set; }
         public bool RememberFolders { get; private set; }
         public string[] FixedFolders { get; private set; }
         public string HashAlgorithm { get; private set; }
         public int HashParallelism { get; private set; }
+        public int HashFolderDepth { get; private set; }
         public event EventHandler Changed;
 
         /// <summary>
@@ -78,6 +81,8 @@ namespace Win10ExplorerKit.Configuration
                 current = _store.Read();
             }
             Language = TranslationService.Resolve(current.Get("General", "Language", "en"));
+            string theme = current.Get("General", "Theme", "System");
+            Theme = theme == "Light" || theme == "Dark" ? theme : "System";
             QuotePaths = current.GetBoolean("Copy", "QuotePaths", true);
             RememberFolders = current.GetBoolean("Folders", "Remember", false);
             try { FixedFolders = FolderPaths.Distinct(new JavaScriptSerializer().Deserialize<string[]>(
@@ -86,8 +91,12 @@ namespace Win10ExplorerKit.Configuration
             { FixedFolders = Array.Empty<string>(); }
             string hash = current.Get("Hash", "Algorithm", "SHA-256");
             HashAlgorithm = Array.IndexOf(Features.FileHash.FileHasher.Algorithms, hash) >= 0 ? hash : "SHA-256";
-            int.TryParse(current.Get("Hash", "Parallelism", "2"), out int parallelism);
-            HashParallelism = parallelism == 1 || parallelism == 4 ? parallelism : 2;
+            int.TryParse(current.Get("Hash", "Parallelism", FileHasher.DefaultParallelism.ToString(CultureInfo.InvariantCulture)), out int parallelism);
+            HashParallelism = Array.IndexOf(FileHasher.ParallelOptions, parallelism) >= 0 ? parallelism : FileHasher.DefaultParallelism;
+            bool validDepth = int.TryParse(current.Get("Hash", "FolderDepth",
+                FileHasher.DefaultFolderDepth.ToString(CultureInfo.InvariantCulture)), out int folderDepth);
+            HashFolderDepth = validDepth && Array.IndexOf(FileHasher.FolderDepthOptions, folderDepth) >= 0
+                ? folderDepth : FileHasher.DefaultFolderDepth;
             TranslationService.UseLanguage(Language);
         }
 
@@ -116,13 +125,22 @@ namespace Win10ExplorerKit.Configuration
             if (Changed != null) Changed(this, EventArgs.Empty);
         }
 
+        /// <summary>Persists the folder discovery limit while preserving independent hash preferences</summary>
+        /// <param name="depth">One to three levels, or zero for all levels</param>
+        public void SetHashFolderDepth(int depth)
+        {
+            if (Array.IndexOf(FileHasher.FolderDepthOptions, depth) < 0) throw new ArgumentOutOfRangeException(nameof(depth));
+            _store.Update(document => document.Set("Hash", "FolderDepth", depth.ToString(CultureInfo.InvariantCulture)));
+            HashFolderDepth = depth;
+        }
+
         /// <summary>Persists hash preferences without overwriting other windows' settings</summary>
         /// <param name="algorithm">Supported hash algorithm</param>
         /// <param name="parallelism">Maximum concurrent readers</param>
         public void SetHashOptions(string algorithm, int parallelism)
         {
             if (Array.IndexOf(Features.FileHash.FileHasher.Algorithms, algorithm) < 0 ||
-                (parallelism != 1 && parallelism != 2 && parallelism != 4)) throw new ArgumentException("Invalid hash options");
+                (Array.IndexOf(FileHasher.ParallelOptions, parallelism) < 0)) throw new ArgumentException("Invalid hash options");
             _store.Update(document =>
             {
                 document.Set("Hash", "Algorithm", algorithm);
@@ -155,6 +173,16 @@ namespace Win10ExplorerKit.Configuration
         {
             _store.Update(doc => doc.Set("Copy", "QuotePaths", quotePaths ? "true" : "false"));
             QuotePaths = quotePaths;
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>Persists the selected appearance without changing other preferences</summary>
+        /// <param name="theme">System, Light or Dark</param>
+        public void SetTheme(string theme)
+        {
+            if (theme != "System" && theme != "Light" && theme != "Dark") throw new ArgumentException("Invalid theme");
+            _store.Update(doc => doc.Set("General", "Theme", theme));
+            Theme = theme;
             Changed?.Invoke(this, EventArgs.Empty);
         }
     }

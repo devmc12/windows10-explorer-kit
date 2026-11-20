@@ -48,6 +48,11 @@ try {
             'Win10ExplorerKit.HashHost.x64.exe','Win10ExplorerKit.HashHost.x64.exe.config')) {
             Copy-Item -LiteralPath (Join-Path $build $file) -Destination $stage
         }
+        # Ship only the runtime libraries resolved by the locked WPF dependency graph
+        foreach ($file in @('Wpf.Ui.dll','Wpf.Ui.Abstractions.dll','System.Memory.dll',
+            'System.Buffers.dll','System.Numerics.Vectors.dll','System.Runtime.CompilerServices.Unsafe.dll')) {
+            Copy-Item -LiteralPath (Join-Path $build $file) -Destination $stage
+        }
         $applicationInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $build 'Win10ExplorerKit.exe'))
         if ($applicationInfo.FileVersion -ne $fileVersion -or $applicationInfo.ProductVersion -ne $fileVersion) {
             throw 'Application file version does not match Directory.Build.props'
@@ -73,6 +78,8 @@ try {
             Copy-Item -LiteralPath (Join-Path $build "locales\$locale") -Destination (Join-Path $stage 'locales')
         }
         Copy-Item -LiteralPath (Join-Path $root 'packaging\inno\INNO-LICENSE.txt') -Destination (Join-Path $stage 'licenses\Inno-Setup.txt')
+        Get-ChildItem -LiteralPath (Join-Path $root 'packaging\licenses') -Filter '*.txt' |
+            Copy-Item -Destination (Join-Path $stage 'licenses')
         foreach ($file in @('README.md','README.zh.md','CHANGELOG.md','LICENSE','THIRD-PARTY-NOTICES.md')) {
             Copy-Item -LiteralPath (Join-Path $root $file) -Destination $stage
         }

@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Windows.Forms;
+using System.Threading;
+using System.Windows.Threading;
+using Win10ExplorerKit.App.Activation;
+using Win10ExplorerKit.UI.Services;
 using System.Runtime.InteropServices;
 using Win10ExplorerKit.App.Hashing;
 
@@ -12,8 +15,8 @@ namespace Win10ExplorerKit
         /// <returns>Whether all owned processes released their files</returns>
         private static bool StopHosts()
         {
-            bool tray = SingleInstance.RequestStop();
             bool hash = SingleInstance.RequestStop("Hash");
+            bool tray = SingleInstance.RequestStop();
             return tray && hash;
         }
 
@@ -60,9 +63,8 @@ namespace Win10ExplorerKit
                         using (var owner = new SingleInstance("Hash"))
                         {
                             if (!owner.IsOwner) { AppLogger.Write("Hash host already running", null); return 0; }
-                            Application.EnableVisualStyles();
-                            Application.SetCompatibleTextRenderingDefault(false);
-                            using (var host = new HashApplicationContext(settings, owner)) Application.Run(host);
+                            SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+                            using (var host = new HashApplicationContext(settings, owner)) Dispatcher.Run();
                         }
                     }
                     finally { HashComNative.OleUninitialize(); AppLogger.Write("Hash host stopped", null); }
@@ -92,24 +94,24 @@ namespace Win10ExplorerKit
                 if (Array.IndexOf(args, "--copy") >= 0) return 1;
                 using (var instance = new SingleInstance())
                 {
-                    if (!instance.IsOwner) return 0;
+                    if (!instance.IsOwner)
+                    {
+                        if (Array.IndexOf(args, "--hotkey") < 0)
+                            ActivationChannel.SendAsync(new ActivationRequest { Action = Array.IndexOf(args, "--settings") >= 0 ? "settings" : "hash" }, false).GetAwaiter().GetResult();
+                        return 0;
+                    }
                     PortableSetup.EnsureRegistered(AppDomain.CurrentDomain.BaseDirectory,
-                        SettingsService.FilePath, Application.ExecutablePath, ShellIntegration.Install, HashShellRegistration.Install);
-                    Application.EnableVisualStyles();
-                    Application.SetCompatibleTextRenderingDefault(false);
-                    Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
-                    Application.ThreadException += (sender, e) => AppLogger.Write("UI event failed", e.Exception);
-                    using (var context = new TrayApplicationContext(settings, instance,
-                        Array.IndexOf(args, "--settings") >= 0, Array.IndexOf(args, "--plain") >= 0)) Application.Run(context);
+                        SettingsService.FilePath, AppPaths.ExecutablePath, ShellIntegration.Install, HashShellRegistration.Install);
+                    var app = new DesktopApplication(settings, instance, Array.IndexOf(args, "--hotkey") >= 0,
+                        Array.IndexOf(args, "--settings") >= 0 ? "settings" : "hash", Array.IndexOf(args, "--plain") >= 0);
+                    return app.Run();
                 }
-                return 0;
             }
             catch (Exception ex)
             {
                 AppLogger.Write("Process failed", ex);
                 if (Array.IndexOf(args, "--install") >= 0 || args.Length == 0)
-                    MessageBox.Show(TranslationService.T("error.setup", ex.Message), ProductInfo.Name,
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    DialogService.ShowBlocking(TranslationService.T("error.operation"));
                 return 2;
             }
         }

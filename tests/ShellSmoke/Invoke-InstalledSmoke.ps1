@@ -16,7 +16,7 @@ $application = Join-Path $ApplicationDirectory 'Win10ExplorerKit.exe'
 $architecture = if ([Environment]::Is64BitOperatingSystem) { 'x64' } else { 'x86' }
 $hostPath = [IO.Path]::GetFullPath((Join-Path $ApplicationDirectory "Win10ExplorerKit.HashHost.$architecture.exe"))
 $hostName = [IO.Path]::GetFileNameWithoutExtension($hostPath)
-if (Get-Process -Name $hostName -ErrorAction SilentlyContinue) { throw 'Close the hash window and wait for its process to exit before this cold-start test' }
+if (Get-Process -Name $hostName -ErrorAction SilentlyContinue) { throw 'Exit the application and wait for its COM host to exit before this check' }
 # Fixtures and compiled clients never enter the application directory
 $workspace = Join-Path $root ('.work\installed-smoke-' + [Guid]::NewGuid().ToString('N'))
 $fixtures = Join-Path $workspace 'fixtures'
@@ -40,10 +40,13 @@ foreach ($platform in $platforms) {
     Copy-Item -LiteralPath $application -Destination $destination
     Copy-Item -LiteralPath ($application + '.config') -Destination (Join-Path $destination 'InstalledClient.exe.config')
     $framework = if ([Environment]::Is64BitOperatingSystem) { 'Framework64' } else { 'Framework' }
+    Get-ChildItem -LiteralPath $ApplicationDirectory -Filter '*.dll' | Copy-Item -Destination $destination
+    $wpf = Join-Path $env:WINDIR "Microsoft.NET\$framework\v4.0.30319\WPF"
+    $references = @('UIAutomationClient.dll','UIAutomationTypes.dll','WindowsBase.dll') | ForEach-Object { '/reference:' + (Join-Path $wpf $_) }
     $compiler = Join-Path $env:WINDIR "Microsoft.NET\$framework\v4.0.30319\csc.exe"
     $client = Join-Path $destination 'InstalledClient.exe'
-    & $compiler /nologo /target:exe "/platform:$platform" "/out:$client" "/reference:$application" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll (Join-Path $PSScriptRoot 'InstalledClient.cs') (Join-Path $PSScriptRoot 'MenuClient.cs')
+    & $compiler @references /nologo /target:exe "/platform:$platform" "/out:$client" "/reference:$application" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll (Join-Path $PSScriptRoot 'InstalledClient.cs') (Join-Path $PSScriptRoot 'MenuClient.cs')
     if ($LASTEXITCODE -ne 0) { throw 'Client compilation failed' }
-    & $client $manifest ($Count + 2) $hostPath
+    & $client $manifest ($Count + 2) $application
     if ($LASTEXITCODE -ne 0) { throw "Installed cold-start check failed: $platform" }
 }

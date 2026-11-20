@@ -1,0 +1,88 @@
+<Application x:Class="Win10ExplorerKit.App.DesktopApplication" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" xmlns:s="clr-namespace:Win10ExplorerKit.UI.Services" ShutdownMode="OnExplicitShutdown">
+ <Application.Resources>
+  <ResourceDictionary>
+   <ResourceDictionary.MergedDictionaries>
+    <ui:ThemesDictionary Theme="Light" />
+    <ui:ControlsDictionary />
+   </ResourceDictionary.MergedDictionaries>
+   <s:FolderDepthConverter x:Key="FolderDepthConverter"/>
+   <s:HashCursorConverter x:Key="HashCursorConverter"/>
+   <s:LanguageNameConverter x:Key="LanguageNameConverter"/>
+   <s:ThemeNameConverter x:Key="ThemeNameConverter"/>
+   <Style x:Key="CaptionButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+    <Setter Property="Width" Value="46"/><Setter Property="Height" Value="46"/>
+    <Setter Property="Padding" Value="0"/><Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Background" Value="Transparent"/><Setter Property="Focusable" Value="False"/>
+    <Setter Property="Appearance" Value="Transparent"/>
+   </Style>
+   <ControlTemplate x:Key="CaptionCloseTemplate" TargetType="ui:Button">
+    <Border x:Name="CloseSurface" Background="Transparent">
+     <ui:SymbolIcon x:Name="CloseGlyph" Symbol="Dismiss16" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+    </Border>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="CloseSurface" Property="Background" Value="#C42B1C"/><Setter TargetName="CloseGlyph" Property="Foreground" Value="White"/></Trigger>
+     <Trigger Property="IsPressed" Value="True"><Setter TargetName="CloseSurface" Property="Background" Value="#A82015"/><Setter TargetName="CloseGlyph" Property="Foreground" Value="White"/></Trigger>
+    </ControlTemplate.Triggers>
+   </ControlTemplate>
+   <Style TargetType="ui:Snackbar" BasedOn="{StaticResource {x:Type ui:Snackbar}}">
+    <Setter Property="MinHeight" Value="48"/>
+    <Setter Property="MinWidth" Value="240"/><Setter Property="MaxWidth" Value="480"/>
+    <Setter Property="Margin" Value="8,8,8,16"/>
+    <Setter Property="VerticalAlignment" Value="Top"/><Setter Property="HorizontalAlignment" Value="Center"/>
+    <Setter Property="Template"><Setter.Value>
+     <ControlTemplate TargetType="ui:Snackbar">
+      <Border x:Name="Notice" Visibility="Collapsed" MinHeight="{TemplateBinding MinHeight}" Padding="12,8" CornerRadius="8" Background="{DynamicResource KitToastBrush}" BorderBrush="{DynamicResource KitToastBorderBrush}" BorderThickness="1">
+       <Border.RenderTransform><TranslateTransform x:Name="ToastOffset"/></Border.RenderTransform>
+       <Border.Effect><DropShadowEffect Color="#14243D" BlurRadius="18" ShadowDepth="4" Direction="270" Opacity="0.18"/></Border.Effect>
+       <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <ui:SymbolIcon Symbol="Info24" FontSize="20" Foreground="{DynamicResource KitToastTextBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+        <ContentPresenter Grid.Column="1" Content="{TemplateBinding Content}" VerticalAlignment="Center" Margin="0,0,12,0" TextElement.FontSize="14" TextElement.Foreground="{DynamicResource KitToastTextBrush}">
+         <ContentPresenter.Resources><Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap"/></Style></ContentPresenter.Resources>
+        </ContentPresenter>
+        <ui:Button Cursor="Hand" x:Name="DismissButton" Grid.Column="2" Foreground="{DynamicResource KitToastTextBrush}" Padding="6" VerticalAlignment="Center" Appearance="Transparent" Command="{Binding TemplateButtonCommand, RelativeSource={RelativeSource TemplatedParent}}" AutomationProperties.Name="{Binding [common.close], Source={x:Static s:LocalizedText.Instance}}"><ui:SymbolIcon Symbol="Dismiss16"/></ui:Button>
+       </Grid>
+      </Border>
+      <ControlTemplate.Triggers>
+       <Trigger Property="IsShown" Value="True"><Setter TargetName="Notice" Property="Visibility" Value="Visible"/></Trigger>
+       <MultiDataTrigger>
+        <MultiDataTrigger.Conditions>
+         <Condition Binding="{Binding IsShown, RelativeSource={RelativeSource TemplatedParent}}" Value="True"/>
+         <Condition Binding="{Binding Source={x:Static SystemParameters.ClientAreaAnimation}}" Value="True"/>
+        </MultiDataTrigger.Conditions>
+        <MultiDataTrigger.EnterActions><BeginStoryboard x:Name="ToastEntrance"><Storyboard>
+         <DoubleAnimation Storyboard.TargetName="ToastOffset" Storyboard.TargetProperty="Y" From="-12" To="0" Duration="0:0:0.18"><DoubleAnimation.EasingFunction><QuadraticEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+         <DoubleAnimation Storyboard.TargetName="Notice" Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.16"/>
+        </Storyboard></BeginStoryboard></MultiDataTrigger.EnterActions>
+        <MultiDataTrigger.ExitActions><RemoveStoryboard BeginStoryboardName="ToastEntrance"/></MultiDataTrigger.ExitActions>
+       </MultiDataTrigger>
+       <Trigger Property="IsCloseButtonEnabled" Value="False"><Setter TargetName="DismissButton" Property="Visibility" Value="Collapsed"/></Trigger>
+      </ControlTemplate.Triggers>
+     </ControlTemplate>
+    </Setter.Value></Setter>
+   </Style>
+   <Style x:Key="TrayMenuStyle" TargetType="ContextMenu" BasedOn="{StaticResource UiContextMenu}">
+    <Setter Property="Template"><Setter.Value>
+     <ControlTemplate TargetType="ContextMenu">
+      <Border Padding="4" Background="{DynamicResource ContextMenuBackground}" BorderBrush="{DynamicResource ContextMenuBorderBrush}" BorderThickness="1" CornerRadius="8">
+       <ScrollViewer CanContentScroll="True" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle"/>
+       </ScrollViewer>
+      </Border>
+     </ControlTemplate>
+    </Setter.Value></Setter>
+   </Style>
+   <Style x:Key="HashHeaderStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DefaultDataGridColumnHeaderStyle}">
+    <Setter Property="Background" Value="{DynamicResource KitHeaderBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource KitBorderBrush}"/>
+    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    <Setter Property="Padding" Value="12,10"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+   </Style>
+   <Style x:Key="PageTitle" TargetType="TextBlock"><Setter Property="FontSize" Value="24"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Margin" Value="0,0,0,20"/></Style>
+   <Style x:Key="SettingRow" TargetType="Grid"><Setter Property="MinHeight" Value="60"/><Setter Property="Margin" Value="0,0,0,8"/></Style>
+  </ResourceDictionary>
+ </Application.Resources>
+</Application>

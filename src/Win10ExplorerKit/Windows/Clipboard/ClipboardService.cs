@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Windows.Forms;
+using System.Windows;
 
 namespace Win10ExplorerKit.Windows.Clipboard
 {
@@ -19,7 +19,7 @@ namespace Win10ExplorerKit.Windows.Clipboard
             {
                 try
                 {
-                    System.Windows.Forms.Clipboard.SetText(text, TextDataFormat.UnicodeText);
+                    System.Windows.Clipboard.SetText(text, TextDataFormat.UnicodeText);
                     return true;
                 }
                 catch (ExternalException)

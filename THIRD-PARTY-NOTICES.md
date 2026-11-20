@@ -14,6 +14,17 @@ The translation is included unchanged, with its original maintainer attribution,
 contact email addresses and source links. It remains subject to its upstream
 notices and is not relicensed by the project's MIT license.
 
-The application icon was generated for this project. No third-party icon pack is
-included. NuGet reference assemblies and MSTest dependencies are used only for
-building/testing and are not included in the application distribution.
+The interface uses [WPF UI](https://github.com/lepoco/wpfui), including its
+Abstractions library and bundled Fluent icons. Its MIT license and upstream
+third-party notices are preserved in `packaging/licenses/WPF-UI-*.txt` and copied
+to `licenses/` in the distribution packages.
+
+System.Memory, System.Buffers, System.Numerics.Vectors and
+System.Runtime.CompilerServices.Unsafe are distributed under the upstream
+[.NET maintenance packages](https://github.com/dotnet/maintenance-packages)
+MIT license. The license is preserved in
+`packaging/licenses/DotNet-LICENSE.txt` and copied to `licenses/` in the packages.
+
+The application icon was generated for this project. NuGet reference assemblies
+and MSTest dependencies are used only for building/testing and are not included
+in the application distribution.

@@ -5,6 +5,8 @@ namespace Win10ExplorerKit.App
 {
     internal static class AppPaths
     {
+        // Activation always targets the main executable
+        internal static string ExecutablePath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Win10ExplorerKit.exe");
         // Writable directory shared by program files and runtime data
         public static readonly string DataDirectory = AppDomain.CurrentDomain.BaseDirectory;
 

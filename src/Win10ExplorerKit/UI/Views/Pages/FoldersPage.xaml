@@ -1,0 +1,28 @@
+<?xml version="1.0" ?>
+<Page xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" xmlns:s="clr-namespace:Win10ExplorerKit.UI.Services" x:Class="Win10ExplorerKit.UI.Views.Pages.FoldersPage" ScrollViewer.CanContentScroll="False" Background="Transparent">
+ <Border Background="{DynamicResource KitSurfaceBrush}" BorderBrush="{DynamicResource KitBorderBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,12,12">
+ <ScrollViewer VerticalScrollBarVisibility="Auto">
+  <StackPanel Margin="24,16,24,20">
+   <TextBlock Text="{Binding [settings.folders], Source={x:Static s:LocalizedText.Instance}}" Style="{StaticResource PageTitle}"/>
+   <Grid Style="{StaticResource SettingRow}">
+    <Grid.ColumnDefinitions>
+     <ColumnDefinition Width="*"/>
+     <ColumnDefinition Width="Auto"/>
+    </Grid.ColumnDefinitions>
+    <TextBlock Text="{Binding [folders.remember], Source={x:Static s:LocalizedText.Instance}}" ToolTipService.InitialShowDelay="300" ToolTipService.ShowDuration="15000" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,16,0">
+     <TextBlock.ToolTip><ToolTip><TextBlock MaxWidth="340" TextWrapping="Wrap" Text="{Binding [folders.rememberHelp], Source={x:Static s:LocalizedText.Instance}}"/></ToolTip></TextBlock.ToolTip>
+    </TextBlock>
+    <ui:ToggleSwitch Cursor="Hand" OnContent="" OffContent="" Grid.Column="1" IsChecked="{Binding RememberFolders}" VerticalAlignment="Center"/>
+   </Grid>
+   <ui:Button Cursor="Hand" Content="{Binding [folders.restore], Source={x:Static s:LocalizedText.Instance}}" Click="RestoreFolders" HorizontalAlignment="Left" Margin="0,0,0,20"/>
+   <Separator Margin="0,0,0,20"/>
+   <TextBlock Text="{Binding [folders.fixed], Source={x:Static s:LocalizedText.Instance}}" Margin="0,0,0,8"/>
+   <TextBox Text="{Binding FixedText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" MinHeight="140" MaxHeight="260" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+   <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+    <ui:Button Cursor="Hand" Content="{Binding [settings.save], Source={x:Static s:LocalizedText.Instance}}" Click="SaveFolders" Appearance="Primary"/>
+    <ui:Button Cursor="Hand" Content="{Binding [folders.openFixed], Source={x:Static s:LocalizedText.Instance}}" Click="OpenFixed" Margin="12,0,0,0"/>
+   </StackPanel>
+  </StackPanel>
+ </ScrollViewer>
+ </Border>
+</Page>

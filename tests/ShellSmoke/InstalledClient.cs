@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using System.Windows.Automation;
 using Win10ExplorerKit.Windows.Interop;
 
 internal static class InstalledClient
@@ -44,18 +45,13 @@ internal static class InstalledClient
                         !string.Equals(imagePath.ToString(), hostPath, StringComparison.OrdinalIgnoreCase)) continue;
                     IntPtr window = process.MainWindowHandle;
                     if (window == IntPtr.Zero) continue;
-                    EnumChildWindows(window, delegate(IntPtr child, IntPtr parameter)
-                    {
-                        var text = new StringBuilder(512);
-                        GetWindowText(child, text, text.Capacity);
-                        if (text.ToString().Contains(expected + "/" + expected)) finished = true;
-                        return !finished;
-                    }, IntPtr.Zero);
+                    var root = AutomationElement.FromHandle(window);
+                    var summary = root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, "HashSummary"));
+                    finished = summary != null && summary.Current.Name.StartsWith(expected + "/" + expected + " ", StringComparison.Ordinal);
                     if (finished)
                     {
                         Console.WriteLine("Native menu, " + (IntPtr.Size * 8) + "-bit client: " + expected + " completed in " + elapsed.Elapsed.TotalSeconds.ToString("F2") + " s");
                         PostMessage(window, 0x0010, IntPtr.Zero, IntPtr.Zero);
-                        if (!process.WaitForExit(10000)) throw new TimeoutException("Hash host did not exit after closing");
                         return 0;
                     }
                 }
@@ -77,15 +73,6 @@ internal static class InstalledClient
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     private static extern bool QueryFullProcessImageName(IntPtr process, uint flags, StringBuilder path, ref int size);
 
-    /// <summary>Visits one native child window</summary>
-    /// <param name="window">Window handle</param><param name="parameter">Caller data</param><returns>Continue enumeration</returns>
-    private delegate bool WindowCallback(IntPtr window, IntPtr parameter);
-    /// <summary>Enumerates child controls for the localized completion summary</summary>
-    /// <param name="parent">Hash window</param><param name="callback">Visitor</param><param name="parameter">Caller data</param><returns>Success</returns>
-    [DllImport("user32.dll")] private static extern bool EnumChildWindows(IntPtr parent, WindowCallback callback, IntPtr parameter);
-    /// <summary>Reads a control's caption</summary>
-    /// <param name="window">Control</param><param name="text">Output</param><param name="count">Capacity</param><returns>Copied character count</returns>
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int count);
     /// <summary>Requests normal window closure</summary>
     /// <param name="window">Window</param><param name="message">Message</param><param name="wParam">Parameter</param><param name="lParam">Parameter</param><returns>Success</returns>
     [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);

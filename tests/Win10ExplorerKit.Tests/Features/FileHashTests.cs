@@ -58,26 +58,92 @@ namespace Win10ExplorerKit.Tests.Features
             File.WriteAllText(hidden, "");
             File.SetAttributes(hidden, FileAttributes.Hidden);
             Directory.CreateDirectory(Path.Combine(_directory, "empty"));
-            var queue = new HashQueue("SHA-256", 2);
+            var queue = new HashQueue("SHA-256", 5);
             try
             {
                 queue.Add(new[] { _directory, visible, visible.ToUpperInvariant(), Path.Combine(_directory, "empty") });
                 await WaitIdle(queue);
                 HashItem[] rows = queue.NewItems.ToArray();
-                Assert.AreEqual(3, rows.Length);
+                Assert.AreEqual(2, rows.Length);
                 Assert.AreEqual(2, rows.Count(r => r.State == HashState.Complete));
-                Assert.AreEqual(1, rows.Count(r => r.State == HashState.Empty));
+                Assert.IsFalse(rows.Any(r => Directory.Exists(r.Path)), "Empty folders must not create result rows");
                 Assert.AreEqual("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", rows.Single(r => r.Path == hidden).Value);
             }
             finally { await queue.StopAsync(); queue.Dispose(); }
         }
 
+        /// <summary>Counts the selected folder as level one and supports unlimited lazy discovery</summary>
+        /// <param name="depth">Selected depth, with zero meaning all</param><param name="count">Expected file count</param>
+        /// <returns>Completion after all selected levels are processed</returns>
+        [DataTestMethod]
+        [DataRow(1, 1)]
+        [DataRow(2, 2)]
+        [DataRow(3, 3)]
+        [DataRow(0, 4)]
+        public async Task DiscoversConfiguredFolderDepth(int depth, int count)
+        {
+            string current = _directory;
+            for (int level = 1; level <= 4; level++)
+            {
+                Directory.CreateDirectory(current);
+                File.WriteAllText(Path.Combine(current, "file.txt"), "abc");
+                current = Path.Combine(current, "child");
+            }
+            var queue = new HashQueue("SHA-256", 5, folderDepth: depth);
+            try
+            {
+                queue.Add(new[] { _directory });
+                await WaitIdle(queue);
+                Assert.AreEqual(count, queue.NewItems.Count);
+                Assert.IsTrue(queue.NewItems.All(row => row.State == HashState.Complete));
+            }
+            finally { await queue.StopAsync(); queue.Dispose(); }
+        }
+
+        /// <summary>A separately selected child extends its depth budget without duplicating shared files</summary>
+        /// <returns>Completion after overlapping roots finish</returns>
+        [TestMethod]
+        public async Task ExtendsDepthForOverlappingRoots()
+        {
+            string child = Path.Combine(_directory, "child");
+            string grandchild = Path.Combine(child, "grandchild");
+            Directory.CreateDirectory(grandchild);
+            foreach (string folder in new[] { _directory, child, grandchild })
+                File.WriteAllText(Path.Combine(folder, "file.txt"), "abc");
+            var queue = new HashQueue("MD5", 5, folderDepth: 2);
+            try
+            {
+                queue.Add(new[] { _directory, child });
+                await WaitIdle(queue);
+                Assert.AreEqual(3, queue.NewItems.Count);
+                Assert.AreEqual(3, queue.NewItems.Select(row => row.Path).Distinct().Count());
+            }
+            finally { await queue.StopAsync(); queue.Dispose(); }
+        }
+
+        /// <summary>Defaults to one level and preserves other preferences when saving unlimited depth</summary>
+        [TestMethod]
+        public void PersistsFolderDepth()
+        {
+            string path = Path.Combine(_directory, "Config.ini");
+            var settings = new SettingsService(path, "en");
+            Assert.AreEqual(1, settings.HashFolderDepth);
+            settings.SetHashFolderDepth(0);
+            settings.SetHashOptions("MD5", 10);
+            Assert.AreEqual(0, new SettingsService(path, "en").HashFolderDepth);
+            Assert.ThrowsException<ArgumentOutOfRangeException>(() => settings.SetHashFolderDepth(4));
+        }
+
         /// <summary>Processes a large selection with every supported worker count</summary>
         /// <param name="parallelism">Maximum concurrent file readers</param>
         [DataTestMethod]
-        [DataRow(1)]
-        [DataRow(2)]
-        [DataRow(4)]
+        [DataRow(5)]
+        [DataRow(10)]
+        [DataRow(15)]
+        [DataRow(20)]
+        [DataRow(30)]
+        [DataRow(50)]
+        [DataRow(100)]
         public async Task ProcessesLargeBatches(int parallelism)
         {
             var files = new List<string>();
@@ -111,7 +177,7 @@ namespace Win10ExplorerKit.Tests.Features
             File.WriteAllText(available, "abc");
             using (File.Open(locked, FileMode.Create, FileAccess.ReadWrite, FileShare.None))
             {
-                var queue = new HashQueue("MD5", 2);
+                var queue = new HashQueue("MD5", 5);
                 try
                 {
                     queue.Add(new[] { locked, Path.Combine(_directory, "missing.txt"), available });
@@ -130,7 +196,7 @@ namespace Win10ExplorerKit.Tests.Features
         {
             string path = Path.Combine(_directory, "large.bin");
             using (var stream = File.Create(path)) stream.SetLength(64 * 1024 * 1024);
-            var queue = new HashQueue("SHA-512", 2);
+            var queue = new HashQueue("SHA-512", 5);
             queue.Add(new[] { path });
             await queue.StopAsync();
             Assert.IsFalse(queue.IsBusy);
@@ -145,11 +211,11 @@ namespace Win10ExplorerKit.Tests.Features
         {
             string path = Path.Combine(_directory, "Config.ini");
             var settings = new SettingsService(path, "zh-CN");
-            settings.SetHashOptions("SHA-512", 4);
+            settings.SetHashOptions("SHA-512", 10);
             settings.SetQuotePaths(false);
             settings = new SettingsService(path, "en");
             Assert.AreEqual("SHA-512", settings.HashAlgorithm);
-            Assert.AreEqual(4, settings.HashParallelism);
+            Assert.AreEqual(10, settings.HashParallelism);
             Assert.AreEqual("zh-CN", settings.Language);
             Assert.IsFalse(settings.QuotePaths);
         }

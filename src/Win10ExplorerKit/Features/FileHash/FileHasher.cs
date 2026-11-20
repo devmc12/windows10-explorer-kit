@@ -9,6 +9,14 @@ namespace Win10ExplorerKit.Features.FileHash
     {
         // One reusable data buffer per worker, measured in bytes
         internal const int BufferSize = 1024 * 1024;
+        // Reader count used when configuration is absent or no longer supported
+        internal const int DefaultParallelism = 5;
+        // First-level files are included when no folder depth has been saved
+        internal const int DefaultFolderDepth = 1;
+        // Zero represents every level; other values count the selected folder as level one
+        internal static readonly int[] FolderDepthOptions = { 1, 2, 3, 0 };
+        // Supported concurrent file readers shared by the UI and persisted settings
+        internal static readonly int[] ParallelOptions = { 5, 10, 15, 20, 30, 50, 100 };
         internal static readonly string[] Algorithms = { "MD5", "SHA-1", "SHA-256", "SHA-512" };
 
         /// <summary>Creates a distinct algorithm instance for each file</summary>

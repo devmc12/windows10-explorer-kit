@@ -1,157 +1,84 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
-using System.Windows.Forms;
-using Win10ExplorerKit.UI.Forms.Settings;
-
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Interop;
+using Win10ExplorerKit.UI.ViewModels;
+using Forms = System.Windows.Forms;
 namespace Win10ExplorerKit.UI.Tray
 {
     internal sealed class TrayController : IDisposable
     {
         private readonly SettingsService _settings;
-        private readonly FolderRecoveryService _folders;
-        private readonly Timer _leftClick = new Timer { Interval = SystemInformation.DoubleClickTime };
-        private readonly ToolStripMenuItem _restore = new ToolStripMenuItem();
-        private readonly ToolStripMenuItem _openFixed = new ToolStripMenuItem();
-        private bool _disposed;
-        private readonly NotifyIcon _icon;
+        private readonly SettingsViewModel _model;
+        private readonly Action<string> _open;
+        private readonly Action _exit;
+        private readonly Forms.NotifyIcon _icon;
         private readonly Icon _image;
-        private readonly ContextMenuStrip _menu = new TrayContextMenu();
-        private readonly ToolStripMenuItem _status = new ToolStripMenuItem { Enabled = false };
-        private readonly ToolStripMenuItem _languages = new ToolStripMenuItem();
-        private readonly ToolStripMenuItem _settingsItem = new ToolStripMenuItem();
-        private readonly ToolStripMenuItem _log = new ToolStripMenuItem();
-        private readonly ToolStripMenuItem _exit = new ToolStripMenuItem();
-        private readonly Dictionary<string, ToolStripMenuItem> _languageItems = new Dictionary<string, ToolStripMenuItem>();
-        private SettingsForm _settingsForm;
-
-        /// <summary>
-        /// Builds native menus and subscribes to settings changes shared with GUI windows
-        /// </summary>
-        /// <param name="settings">Configuration service shared by all user interfaces</param>
-        /// <param name="exit">Application-level exit callback</param>
-        /// <param name="folders">Folder monitoring and restore commands</param>
-        public TrayController(SettingsService settings, Action exit, FolderRecoveryService folders)
+        private readonly ContextMenu _menu = new ContextMenu { Placement = PlacementMode.MousePoint, StaysOpen = false };
+        /// <summary>Uses a native notification icon with an entirely WPF popup menu</summary>
+        /// <param name="settings">Language preferences</param><param name="model">Shared settings commands</param><param name="open">Window navigation</param><param name="exit">Application shutdown</param>
+        internal TrayController(SettingsService settings, SettingsViewModel model, Action<string> open, Action exit)
         {
-            _settings = settings;
-            _folders = folders;
-            _restore.Click += (sender, e) => OpenFolders(false);
-            _openFixed.Click += (sender, e) => OpenFolders(true);
-            _languages.DropDown = new TrayContextMenu();
+            _settings = settings; _model = model; _open = open; _exit = exit;
+            _image = Icon.ExtractAssociatedIcon(AppPaths.ExecutablePath);
+            _icon = new Forms.NotifyIcon { Icon = _image, Text = ProductInfo.Name, Visible = true };
+            _icon.MouseClick += (sender, args) =>
+            {
+                if (args.Button == Forms.MouseButtons.Left) { _menu.IsOpen = false; _open("hash"); }
+                else if (args.Button == Forms.MouseButtons.Right) ShowMenu();
+            };
+            _menu.SetResourceReference(FrameworkElement.StyleProperty, "TrayMenuStyle");
+            _menu.Opened += (sender, args) =>
+            {
+                // Activate the popup itself so there is no hidden owner in the taskbar
+                if (PresentationSource.FromVisual(_menu) is HwndSource source) NativeMethods.SetForegroundWindow(source.Handle);
+            };
+            _settings.Changed += Refresh;
+            Rebuild();
+            // Prepare the popup template without showing a window or recreating it on every click
+            _menu.ApplyTemplate();
+            _menu.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+        }
+        /// <summary>Opens the cached menu without waiting for double-click timing or rebuilding controls</summary>
+        private void ShowMenu() { if (!_menu.IsOpen) _menu.IsOpen = true; }
+        /// <summary>Creates a localized menu command</summary><param name="key">Locale key</param><param name="action">Command</param><returns>Menu entry</returns>
+        private static MenuItem Item(string key, Action action)
+        {
+            var item = new MenuItem { Header = TranslationService.T(key).Replace("&", "") };
+            item.Click += (sender, args) => action(); return item;
+        }
+        /// <summary>Updates open menu text after a locale change</summary><param name="sender">Settings service</param><param name="args">Changed event</param>
+        private void Refresh(object sender, EventArgs args) { _menu.IsOpen = false; Rebuild(); }
+        /// <summary>Builds the small set of tray commands without showing a window</summary>
+        private void Rebuild()
+        {
+            _menu.Items.Clear();
+            _menu.Items.Add(Item("tray.open", () => _open("hash")));
+            _menu.Items.Add(Item("folders.restore", async () => await _model.OpenFoldersAsync(false)));
+            _menu.Items.Add(Item("folders.openFixed", async () => await _model.OpenFoldersAsync(true)));
+            _menu.Items.Add(new Separator());
+            _menu.Items.Add(Item("settings.title", () => _open("settings")));
+            var languages = new MenuItem { Header = TranslationService.T("tray.language").Replace("&", "") };
             foreach (string code in TranslationService.AvailableLanguages)
             {
                 string selected = code;
-                var item = new ToolStripMenuItem(TranslationService.LanguageName(code), null, (sender, e) =>
-                {
-                    try { _settings.SetLanguage(selected); }
-                    catch (Exception ex) { AppLogger.Write("Language update failed", ex); MessageBox.Show(TranslationService.T("error.language"), ProductInfo.Name); }
-                });
-                _languageItems.Add(code, item);
-                _languages.DropDownItems.Add(item);
+                var item = new MenuItem { Header = TranslationService.LanguageName(code), IsCheckable = true, IsChecked = code == _settings.Language };
+                item.Click += (sender, args) => _model.Language = selected;
+                languages.Items.Add(item);
             }
-            _settingsItem.Click += (sender, e) => ShowSettings();
-            _log.Click += (sender, e) =>
-            {
-                System.IO.Directory.CreateDirectory(AppLogger.LogDirectory);
-                Process.Start(new ProcessStartInfo(AppLogger.LogDirectory) { UseShellExecute = true });
-            };
-            _exit.Click += (sender, e) => exit();
-            _menu.Items.AddRange(new ToolStripItem[] { _status, _restore, _openFixed, new ToolStripSeparator(), _settingsItem, _languages, _log, new ToolStripSeparator(), _exit });
-            _image = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? (Icon)SystemIcons.Application.Clone();
-            _icon = new NotifyIcon { Icon = _image, Text = ProductInfo.Name, ContextMenuStrip = _menu, Visible = true };
-            _leftClick.Tick += (sender, e) =>
-            {
-                _leftClick.Stop();
-                _menu.Show(Cursor.Position);
-                NativeMethods.SetForegroundWindow(_menu.Handle);
-            };
-            _menu.Opening += (sender, e) => _leftClick.Stop();
-            _icon.MouseClick += ShowMenu;
-            _icon.MouseDoubleClick += (sender, e) =>
-            {
-                if (e.Button != MouseButtons.Left) return;
-                _leftClick.Stop();
-                OpenFolders(false);
-            };
-            _settings.Changed += SettingsChanged;
-            RefreshText();
+            _menu.Items.Add(languages);
+            _menu.Items.Add(Item("settings.openLogs", _model.OpenLogs));
+            _menu.Items.Add(new Separator()); _menu.Items.Add(Item("tray.exit", _exit));
         }
-
-        /// <summary>
-        /// Opens the shared tray menu on a left click and activates it for dismissal outside the app
-        /// </summary>
-        /// <param name="sender">Tray notification icon</param>
-        /// <param name="args">Mouse button and pointer information</param>
-        private void ShowMenu(object sender, MouseEventArgs args)
-        {
-            if (args.Button != MouseButtons.Left) return;
-            _leftClick.Start();
-        }
-
-        /// <summary>Runs a tray command and reports empty or unavailable folders</summary>
-        /// <param name="fixedList">Use the configured list instead of a snapshot</param>
-        private async void OpenFolders(bool fixedList)
-        {
-            string status = await _folders.OpenAsync(fixedList);
-            if (!_disposed && status != null) _icon.ShowBalloonTip(4000, ProductInfo.Name, status, ToolTipIcon.Info);
-        }
-
-        /// <summary>
-        /// Opens one settings window and activates the existing instance on repeated requests
-        /// </summary>
-        public void ShowSettings()
-        {
-            if (_settingsForm == null || _settingsForm.IsDisposed) _settingsForm = new SettingsForm(_settings);
-            _settingsForm.Show();
-            _settingsForm.Activate();
-        }
-
-        /// <summary>
-        /// Updates shell labels and tray text after a committed configuration change
-        /// </summary>
-        /// <param name="sender">Settings service raising the event</param>
-        /// <param name="args">Event arguments</param>
-        private void SettingsChanged(object sender, EventArgs args)
-        {
-            RefreshText();
-            try { ShellIntegration.RefreshLabels(); }
-            catch (Exception ex) { AppLogger.Write("Shell labels could not be refreshed", ex); }
-        }
-
-        /// <summary>
-        /// Applies the active catalog without rebuilding menus or losing keyboard focus
-        /// </summary>
-        private void RefreshText()
-        {
-            _status.Text = TranslationService.T("tray.status");
-            _languages.Text = TranslationService.T("tray.language");
-            _restore.Text = TranslationService.T("folders.restore");
-            _openFixed.Text = TranslationService.T("folders.openFixed");
-            _settingsItem.Text = TranslationService.T("tray.settings");
-            _log.Text = TranslationService.T("tray.openLog");
-            _exit.Text = TranslationService.T("tray.exit");
-            foreach (var pair in _languageItems) pair.Value.Checked = pair.Key == _settings.Language;
-        }
-
-        /// <summary>
-        /// Displays a localized notification when another program owns the shortcut
-        /// </summary>
-        public void ShowHotkeyConflict() { _icon.ShowBalloonTip(4000, ProductInfo.Name, TranslationService.T("error.hotkey"), ToolTipIcon.Warning); }
-
-        /// <summary>
-        /// Unsubscribes from shared services and releases all UI resources
-        /// </summary>
+        /// <summary>Reports background feedback without forcing open the main window</summary><param name="message">Localized message</param>
+        internal void Notify(string message) => _icon.ShowBalloonTip(4000, ProductInfo.Name, message, Forms.ToolTipIcon.Info);
+        /// <summary>Releases tray resources before dispatcher shutdown</summary>
         public void Dispose()
         {
-            _disposed = true;
-            _leftClick.Dispose();
-            _settings.Changed -= SettingsChanged;
-            if (_settingsForm != null) _settingsForm.Dispose();
-            _icon.Visible = false;
-            _icon.Dispose();
-            _image.Dispose();
-            _menu.Dispose();
+            _settings.Changed -= Refresh; _menu.IsOpen = false;
+            _icon.Visible = false; _icon.Dispose(); _image?.Dispose();
         }
     }
 }

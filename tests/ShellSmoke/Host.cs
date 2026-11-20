@@ -11,7 +11,10 @@ using Win10ExplorerKit.App;
 using Win10ExplorerKit.App.Hashing;
 using Win10ExplorerKit.Configuration;
 using Win10ExplorerKit.Features.FileHash;
-using Win10ExplorerKit.UI.Forms.Hash;
+using Win10ExplorerKit.UI.ViewModels;
+using Win10ExplorerKit.App.Activation;
+using System.Threading.Tasks;
+using System.Windows.Threading;
 using Win10ExplorerKit.Windows.Interop;
 
 internal static class SmokeHost
@@ -46,32 +49,32 @@ internal static class SmokeHost
     /// <param name="role">Temporary single-instance role</param>
     private static void Server(Guid clsid, string directory, string role)
     {
-        Application.EnableVisualStyles();
-        Application.SetCompatibleTextRenderingDefault(false);
+
+        var dispatcher = Dispatcher.CurrentDispatcher;
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(dispatcher));
+        var settings = new SettingsService(Path.Combine(directory, "Config.ini"), "en");
+        var model = new HashViewModel(settings, delegate(string message) { }, delegate(string text) { return true; });
         using (var owner = new SingleInstance(role))
-        using (var context = new HashApplicationContext(new SettingsService(Path.Combine(directory, "Config.ini"), "en"), owner, clsid))
-        using (var timer = new System.Windows.Forms.Timer { Interval = 150 })
+        using (var context = new HashApplicationContext(settings, owner, clsid, delegate(ActivationRequest request, bool start)
         {
+            if (request.Action == "append-hash") model.AddPaths(request.Paths);
+            return Task.FromResult(model.InputEpoch);
+        }))
+        {
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
             string previous = null;
             timer.Tick += delegate
             {
-                var form = (HashForm)typeof(HashApplicationContext).GetField("_form", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(context);
-                if (form == null || form.IsDisposed) return;
-                int complete = form.Results.Count(row => row.State == HashState.Complete);
-                int failed = form.Results.Count(row => row.State == HashState.Failed);
-                string state = string.Join(",", Process.GetCurrentProcess().Id, form.Results.Count, complete, failed, form.IsBusy);
-                if (state == previous) return;
-                previous = state;
-                File.WriteAllText(Path.Combine(directory, "state.txt"), state);
-                if (!form.IsBusy && complete > 0)
-                    using (var bitmap = new Bitmap(form.Width, form.Height))
-                    {
-                        form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
-                        bitmap.Save(Path.Combine(directory, "window.png"));
-                    }
+                int complete = model.Rows.Count(row => row.CanCopy);
+                int failed = model.Rows.Count(row => row.Item.State == HashState.Failed);
+                string state = string.Join(",", Process.GetCurrentProcess().Id, model.Rows.Count, complete, failed, model.IsBusy);
+                if (state != previous) { previous = state; File.WriteAllText(Path.Combine(directory, "state.txt"), state); }
             };
             timer.Start();
-            Application.Run(context);
+            Dispatcher.Run();
+            timer.Stop();
+            SynchronizationContext.SetSynchronizationContext(null);
+            model.CloseAsync().GetAwaiter().GetResult();
         }
     }
 

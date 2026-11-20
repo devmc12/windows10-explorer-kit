@@ -1,166 +1,133 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
-using Win10ExplorerKit.UI.Forms.Hash;
-
+using System.Windows.Threading;
+using Win10ExplorerKit.App.Activation;
 namespace Win10ExplorerKit.App.Hashing
 {
-    internal sealed class HashApplicationContext : ApplicationContext
+    internal sealed class HashApplicationContext : IDisposable
     {
         // Shell filesystem display-name identifier from SIGDN
         private const uint FileSystemPath = 0x80058000;
-        // A selection is extracted in small UI batches to keep COM and WinForms responsive
+        // Bound path batches by both count and encoded payload size
         private const int SelectionBatchSize = 128;
-        // Idle activation grace in milliseconds for a caller that never executes its command
-        private const int ActivationGraceMilliseconds = 30000;
-        private readonly Control _dispatcher = new Control();
-        private readonly Timer _lifetime = new Timer { Interval = 200 };
+        // UTF-8 uses at most three bytes per UTF-16 code unit for these paths
+        private const int BatchCharacters = 200000;
+        // Retain an unused activation briefly while Explorer acquires its command
+        private const int ActivationGraceSeconds = 30;
+        private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
+        private readonly DispatcherTimer _lifetime = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         private readonly SingleInstance _instance;
-        private readonly SettingsService _settings;
+        private readonly CancellationTokenSource _cancel = new CancellationTokenSource();
+        private readonly Func<ActivationRequest, bool, Task<int>> _forward;
         private readonly HashClassFactory _factory;
-        private readonly DateTime _started = DateTime.UtcNow;
-        private HashForm _form;
+        private DateTime _lastActivity = DateTime.UtcNow;
         private uint _cookie;
         private int _requests;
         private int _locks;
         private bool _stopping;
-
-        /// <summary>Publishes an out-of-process command factory on the current STA</summary>
-        /// <param name="settings">Preferences loaded before accepting Shell commands</param>
-        /// <param name="instance">Hash process ownership and shutdown event</param>
-        /// <param name="classId">Optional isolated class identity for integration tests</param>
-        internal HashApplicationContext(SettingsService settings, SingleInstance instance, Guid? classId = null)
+        /// <summary>Publishes a lightweight COM selection forwarder on its owning STA</summary>
+        /// <param name="settings">Loaded locale for failure feedback</param><param name="instance">Process ownership</param><param name="classId">Optional isolated test identity</param>
+        /// <param name="forward">Optional isolated selection receiver for integration checks</param>
+        internal HashApplicationContext(SettingsService settings, SingleInstance instance, Guid? classId = null, Func<ActivationRequest, bool, Task<int>> forward = null)
         {
-            _settings = settings;
-            _instance = instance;
-            _dispatcher.CreateControl();
-            _factory = new HashClassFactory(this);
+            _instance = instance; _factory = new HashClassFactory(this);
+            _forward = forward ?? ((request, start) => ActivationChannel.SendAsync(request, start, _cancel.Token));
             IntPtr pointer = Marshal.GetIUnknownForObject(_factory);
             Guid clsid = classId ?? new Guid(HashShellRegistration.ClassId);
-            // CLSCTX_LOCAL_SERVER and REGCLS_MULTIPLEUSE share one window across activations
+            // Local-server multiple-use activation preserves complete multi-selections
             try { Marshal.ThrowExceptionForHR(HashComNative.CoRegisterClassObject(ref clsid, pointer, 4, 1, out _cookie)); }
             finally { Marshal.Release(pointer); }
-            AppLogger.Write("Hash command factory registered", null);
-            _lifetime.Tick += LifetimeTick;
-            _lifetime.Start();
+            _lifetime.Tick += LifetimeTick; _lifetime.Start();
         }
-
-        /// <summary>Tracks an explicit COM server lock</summary><param name="locked">Acquire or release</param>
-        internal void ServerLock(bool locked) { _locks = Math.Max(0, _locks + (locked ? 1 : -1)); }
-
-        /// <summary>Takes an independent reference and returns promptly to Explorer</summary>
-        /// <param name="selection">Complete selection from IObjectWithSelection</param>
+        /// <summary>Tracks an explicit COM lock</summary><param name="locked">Acquire or release</param>
+        internal void ServerLock(bool locked) { _locks = Math.Max(0, _locks + (locked ? 1 : -1)); _lastActivity = DateTime.UtcNow; }
+        /// <summary>Retains a selection and returns promptly to Explorer</summary><param name="selection">Shell selection</param>
         internal void Accept(IShellItemArray selection)
         {
             if (_stopping) throw new COMException("Hash host is closing", unchecked((int)0x80010108));
-            IntPtr pointer = Marshal.GetIUnknownForObject(selection);
-            _requests++;
+            IntPtr pointer = Marshal.GetIUnknownForObject(selection); _requests++;
             try
             {
                 _dispatcher.BeginInvoke(new Action(async () =>
                 {
                     try { await ReceiveAsync((IShellItemArray)Marshal.GetObjectForIUnknown(pointer)); }
-                    finally { Marshal.Release(pointer); _requests--; }
+                    finally { Marshal.Release(pointer); _requests--; _lastActivity = DateTime.UtcNow; }
                 }));
             }
             catch { Marshal.Release(pointer); _requests--; throw; }
         }
-
-        /// <summary>Converts a selection on its STA and hands only paths to background workers</summary>
-        /// <param name="selection">Owned selection reference</param>
-        /// <returns>Completion after the selection is consumed or canceled</returns>
+        /// <summary>Enumerates COM objects only on their STA and forwards plain path batches</summary>
+        /// <param name="selection">Owned selection reference</param><returns>Completion after transfer</returns>
         private async Task ReceiveAsync(IShellItemArray selection)
         {
-            HashForm form = null;
             try
             {
-                if (_stopping) return;
-                if (_form == null || _form.IsDisposed)
-                {
-                    _form = new HashForm(_settings);
-                    _form.FormClosed += (sender, args) => { if (_requests == 0) BeginStop(); };
-                }
-                form = _form;
-                form.Show();
-                if (form.WindowState == FormWindowState.Minimized) form.WindowState = FormWindowState.Normal;
-                form.Activate();
-                form.Receiving(true);
-                int epoch = form.InputEpoch;
+                int epoch = await _forward(new ActivationRequest { Action = "begin-hash" }, true);
+                if (epoch < 0) return;
                 selection.GetCount(out uint count);
-                var batch = new List<string>(SelectionBatchSize);
-                for (uint index = 0; index < count && !_stopping && !form.IsDisposed && form.InputEpoch == epoch; index++)
+                var batch = new List<string>(); int characters = 0;
+                for (uint index = 0; index < count && !_stopping; index++)
                 {
-                    IShellItem item = null;
-                    IntPtr name = IntPtr.Zero;
+                    IShellItem item = null; IntPtr name = IntPtr.Zero; string path = null;
                     try
                     {
-                        selection.GetItemAt(index, out item);
-                        item.GetDisplayName(FileSystemPath, out name);
-                        string path = Marshal.PtrToStringUni(name);
-                        if (!string.IsNullOrWhiteSpace(path)) batch.Add(path);
+                        selection.GetItemAt(index, out item); item.GetDisplayName(FileSystemPath, out name);
+                        path = Marshal.PtrToStringUni(name);
                     }
-                    catch (COMException ex) { AppLogger.Write("Hash selection item unavailable", ex); }
-                    finally
+                    catch (COMException ex) { AppLogger.Write("Hash selection unavailable", ex); }
+                    finally { if (name != IntPtr.Zero) Marshal.FreeCoTaskMem(name); if (item != null) Marshal.ReleaseComObject(item); }
+                    if (!string.IsNullOrWhiteSpace(path))
                     {
-                        if (name != IntPtr.Zero) Marshal.FreeCoTaskMem(name);
-                        if (item != null) Marshal.ReleaseComObject(item);
+                        if (batch.Count > 0 && characters + path.Length > BatchCharacters)
+                        {
+                            if (await ForwardAsync(batch, epoch) < 0) return;
+                            batch.Clear(); characters = 0;
+                        }
+                        batch.Add(path); characters += path.Length;
                     }
-                    if ((index + 1) % SelectionBatchSize == 0)
+                    if (batch.Count >= SelectionBatchSize)
                     {
-                        form.AddPaths(batch.ToArray());
-                        batch.Clear();
-                        await Task.Delay(1);
+                        if (await ForwardAsync(batch, epoch) < 0) return;
+                        batch.Clear(); characters = 0;
                     }
+                    // Yield periodically even when a batch contains unavailable shell items
+                    if ((index + 1) % SelectionBatchSize == 0) await Task.Delay(1);
                 }
-                if (!form.IsDisposed && form.InputEpoch == epoch) form.AddPaths(batch.ToArray());
+                if (!_stopping && batch.Count > 0) await ForwardAsync(batch, epoch);
             }
             catch (Exception ex)
             {
-                AppLogger.Write("Hash selection failed", ex);
-                if (form != null && !form.IsDisposed)
-                    MessageBox.Show(form, TranslationService.T("hash.selectionError"), ProductInfo.Name);
+                AppLogger.Write("Hash selection forwarding failed", ex);
+                if (!_stopping) await UI.Services.DialogService.ShowAsync(TranslationService.T("hash.selectionError"));
             }
-            finally
-            {
-                if (form != null && !form.IsDisposed) form.Receiving(false);
-                Marshal.ReleaseComObject(selection);
-            }
+            finally { Marshal.ReleaseComObject(selection); }
         }
-
-        /// <summary>Honors installer shutdown and retires a closed or unused server</summary>
-        /// <param name="sender">Lifetime timer</param><param name="args">Tick arguments</param>
+        /// <summary>Sends a batch without restarting an application that is shutting down</summary>
+        /// <param name="paths">Selection batch</param><param name="epoch">Current UI round</param><returns>Acceptance status</returns>
+        private Task<int> ForwardAsync(List<string> paths, int epoch) => _forward(
+            new ActivationRequest { Action = "append-hash", Paths = paths.ToArray(), Epoch = epoch }, false);
+        /// <summary>Retires idle servers and honors installer shutdown</summary><param name="sender">Timer</param><param name="args">Tick</param>
         private void LifetimeTick(object sender, EventArgs args)
         {
-            if (_instance.StopRequested()) BeginStop();
-            if (_form != null && _form.IsDisposed && _requests == 0) BeginStop();
-            if (_form == null && _requests == 0 && _locks == 0 &&
-                (DateTime.UtcNow - _started).TotalMilliseconds >= ActivationGraceMilliseconds) BeginStop();
-            if (_stopping && _requests == 0 && (_form == null || _form.IsDisposed)) ExitThread();
-        }
-
-        /// <summary>Revokes activation before waiting for the current readers to stop</summary>
-        private void BeginStop()
-        {
-            if (_stopping) return;
-            _stopping = true;
-            if (_cookie != 0) { HashComNative.CoRevokeClassObject(_cookie); _cookie = 0; }
-            _form?.Close();
-        }
-
-        /// <summary>Releases COM publication and the invisible UI dispatcher</summary>
-        /// <param name="disposing">Whether managed resources are being released</param>
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
+            if (_instance.StopRequested() || (_requests == 0 && _locks == 0 && (DateTime.UtcNow - _lastActivity).TotalSeconds >= ActivationGraceSeconds))
             {
-                _lifetime.Dispose();
-                if (_cookie != 0) HashComNative.CoRevokeClassObject(_cookie);
-                _dispatcher.Dispose();
-                _form?.Dispose();
+                _stopping = true;
+                _cancel.Cancel();
+                if (System.Windows.Application.Current != null)
+                    foreach (var window in System.Windows.Application.Current.Windows.Cast<System.Windows.Window>().ToArray()) window.Close();
+                if (_cookie != 0) { HashComNative.CoRevokeClassObject(_cookie); _cookie = 0; }
+                if (_requests == 0) _dispatcher.BeginInvokeShutdown(DispatcherPriority.Background);
             }
-            base.Dispose(disposing);
+        }
+        /// <summary>Releases COM publication and the dispatcher timer</summary>
+        public void Dispose()
+        {
+            _lifetime.Stop(); _cancel.Cancel(); _cancel.Dispose();
+            if (_cookie != 0) { HashComNative.CoRevokeClassObject(_cookie); _cookie = 0; }
         }
     }
 }

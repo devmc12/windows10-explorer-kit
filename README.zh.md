@@ -7,10 +7,11 @@
 为 Windows 10 文件资源管理器提供路径复制、文件夹恢复与文件哈希计算功能。
 
 - 右键菜单或 **Ctrl + Shift + C** 复制路径，支持多选和双引号设置
-- 自动记住打开的文件夹，通过托盘菜单或双击托盘图标恢复
+- 自动记住打开的文件夹，通过托盘菜单恢复
 - 自定义固定文件夹列表，一键批量打开
 - 右键或拖入文件计算 MD5、SHA-1、SHA-256 或 SHA-512
 - 支持英文、简体中文切换和可配置的登录自启
+- 支持跟随系统、浅色和深色主题
 
 ## 安装使用
 
@@ -23,7 +24,7 @@
 
 ZIP 版首次启动会自动注册右键菜单和登录自启。
 
-选中文件后，右键选择 **复制路径 (Ctrl+Shift+C)** 或按 **Ctrl + Shift + C**。左键或右键点击托盘图标可打开菜单。
+选中文件后，右键选择 **复制路径 (Ctrl+Shift+C)** 或按 **Ctrl + Shift + C**。左键点击托盘图标打开窗口，右键打开菜单。
 
 ## 配置与卸载
 
@@ -50,44 +51,47 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Package.ps1
 ## 项目结构
 
 ```text
-windows10-explorer-kit/                      # 项目根目录
-├── src/Win10ExplorerKit/                    # Windows 桌面应用
-│   ├── Win10ExplorerKit.csproj              # 应用工程与运行时目标
-│   ├── Program.cs                           # 命令分发与程序入口
-│   ├── app.manifest                         # Windows 权限与 DPI 声明
-│   ├── App/                                 # 生命周期、单实例与数据清理
-│   ├── Configuration/                       # 配置模型与 INI 读写
-│   ├── Diagnostics/                         # 应用日志
-│   ├── Features/                            # 路径复制、文件夹恢复与哈希计算
-│   ├── Windows/                             # 资源管理器、自启、热键及原生 API
-│   ├── UI/                                  # 托盘菜单与应用窗口
-│   ├── Localization/                        # 翻译服务与 JSON 语言文件
-│   └── Resources/                           # 应用图标与 Config.example.ini 示例
-├── src/Win10ExplorerKit.HashHost/            # x86/x64 COM 启动程序
-├── tests/                                   # 自动化测试与集成检查
-│   ├── Win10ExplorerKit.Tests/              # 隔离的单元与窗口测试
-│   └── ShellSmoke/                          # 原生菜单与 x64/x86 COM 检查
-├── scripts/                                 # 构建工具
-│   ├── Common.ps1                           # 公共 SDK 查找逻辑
-│   ├── Build.ps1                            # 编译解决方案
-│   ├── Test.ps1                             # 执行 x64 或 x86 进程测试
-│   └── Package.ps1                          # 生成发布包与 SHA-256 校验文件
-├── packaging/                               # 发布配置
-│   ├── inno/Win10ExplorerKit.iss            # 安装与卸载逻辑
-│   ├── inno/Languages/                      # 第三方安装器语言包
-│   ├── inno/INNO-LICENSE.txt                # Inno Setup 许可证
-│   └── portable/                            # 解压版标记与取消注册清理脚本
-├── artifacts/<version>/                     # 发布产物，不纳入 Git
-├── Win10ExplorerKit.sln                     # 包含应用和测试的解决方案
-├── Directory.Build.props                    # 公共构建配置与统一版本
-├── global.json                              # .NET SDK 选择规则
-├── NuGet.Config                             # 依赖包还原来源
-├── .gitignore                               # 本地文件与构建产物忽略规则
-├── AGENTS.md                                # 开发与维护约定
-├── README.md / README.zh.md                 # 英文与中文说明
-├── CHANGELOG.md                             # 版本发布记录
-├── LICENSE                                  # 项目 MIT 许可证
-└── THIRD-PARTY-NOTICES.md                   # 第三方署名与许可说明
+windows10-explorer-kit/                     # 项目根目录
+├── src/Win10ExplorerKit/                   # WPF 桌面应用
+│   ├── packages.lock.json                  # 依赖版本锁定
+│   ├── Win10ExplorerKit.csproj             # 应用工程与运行时目标
+│   ├── App.xaml                            # WPF UI 主题与共享资源
+│   ├── Program.cs                          # 命令分发与程序入口
+│   ├── app.manifest                        # Windows 权限与 DPI 声明
+│   ├── App/                                # 生命周期、单实例与数据清理
+│   ├── Configuration/                      # 配置模型与 INI 读写
+│   ├── Diagnostics/                        # 应用日志
+│   ├── Features/                           # 路径复制、文件夹恢复与哈希计算
+│   ├── Windows/                            # 资源管理器、自启、热键及原生 API
+│   ├── UI/                                 # WPF 页面、视图模型与托盘
+│   ├── Localization/                       # 翻译服务与 JSON 语言文件
+│   └── Resources/                          # 应用图标与 Config.example.ini 示例
+├── src/Win10ExplorerKit.HashHost/          # x86/x64 COM 选择转发程序
+├── tests/                                  # 自动化测试与集成检查
+│   ├── Win10ExplorerKit.Tests/             # 隔离的单元与视图模型测试
+│   └── ShellSmoke/                         # 原生菜单与 x64/x86 COM 检查
+├── scripts/                                # 构建工具
+│   ├── Common.ps1                          # 公共 SDK 查找逻辑
+│   ├── Build.ps1                           # 编译解决方案
+│   ├── Test.ps1                            # 执行 x64 或 x86 进程测试
+│   └── Package.ps1                         # 生成发布包与 SHA-256 校验文件
+├── packaging/                              # 发布配置
+│   ├── inno/Win10ExplorerKit.iss           # 安装与卸载逻辑
+│   ├── inno/Languages/                     # 第三方安装器语言包
+│   ├── inno/INNO-LICENSE.txt               # Inno Setup 许可证
+│   ├── licenses/                           # 界面与运行库许可证
+│   └── portable/                           # 解压版标记与取消注册清理脚本
+├── artifacts/<version>/                    # 发布产物，不纳入 Git
+├── Win10ExplorerKit.sln                    # 包含应用和测试的解决方案
+├── Directory.Build.props                   # 公共构建配置与统一版本
+├── global.json                             # .NET SDK 选择规则
+├── NuGet.Config                            # 依赖包还原来源
+├── .gitignore                              # 本地文件与构建产物忽略规则
+├── AGENTS.md                               # 开发与维护约定
+├── README.md / README.zh.md                # 英文与中文说明
+├── CHANGELOG.md                            # 版本发布记录
+├── LICENSE                                 # 项目 MIT 许可证
+└── THIRD-PARTY-NOTICES.md                  # 第三方署名与许可说明
 ```
 
 版本和发布者在 `Directory.Build.props` 中配置，构建号随打包自动递增。

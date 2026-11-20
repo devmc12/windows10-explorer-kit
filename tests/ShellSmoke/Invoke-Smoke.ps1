@@ -39,8 +39,11 @@ try {
         New-Item -ItemType Directory -Path $destination -Force | Out-Null
         Copy-Item -LiteralPath (Join-Path $build 'Win10ExplorerKit.exe') -Destination $destination
         Copy-Item -LiteralPath (Join-Path $build 'Win10ExplorerKit.exe.config') -Destination (Join-Path $destination 'Win10ExplorerKit.Tests.exe.config')
+        Get-ChildItem -LiteralPath $build -Filter '*.dll' | Copy-Item -Destination $destination
+        $wpf = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\WPF'
+        $wpfReferences = @('WindowsBase.dll','PresentationCore.dll','PresentationFramework.dll') | ForEach-Object { '/reference:' + (Join-Path $wpf $_) }
         $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-        & $compiler /nologo /target:exe "/platform:$platform" "/out:$destination\Win10ExplorerKit.Tests.exe" "/reference:$build\Win10ExplorerKit.exe" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll (Join-Path $PSScriptRoot 'Host.cs') (Join-Path $PSScriptRoot 'MenuClient.cs')
+        & $compiler @wpfReferences /nologo /target:exe "/platform:$platform" "/out:$destination\Win10ExplorerKit.Tests.exe" "/reference:$build\Win10ExplorerKit.exe" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll (Join-Path $PSScriptRoot 'Host.cs') (Join-Path $PSScriptRoot 'MenuClient.cs')
         if ($LASTEXITCODE -ne 0) { throw 'Smoke host compilation failed' }
     }
     $server = Join-Path $workspace 'x64\Win10ExplorerKit.Tests.exe'

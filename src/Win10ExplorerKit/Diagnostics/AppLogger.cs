@@ -52,7 +52,15 @@ namespace Win10ExplorerKit.Diagnostics
         /// <returns>The exception type and hexadecimal error code</returns>
         internal static string DescribeException(Exception exception)
         {
-            return exception.GetType().FullName + " (HRESULT 0x" + exception.HResult.ToString("X8") + ")";
+            var description = new StringBuilder();
+            // Bound the cause chain and record identifiers only, never messages or file paths
+            for (int depth = 0; exception != null && depth < 8; depth++, exception = exception.InnerException)
+            {
+                if (depth > 0) description.Append(" -> ");
+                description.Append(exception.GetType().FullName).Append(" (HRESULT 0x")
+                    .Append(exception.HResult.ToString("X8")).Append(')');
+            }
+            return description.ToString();
         }
     }
 }

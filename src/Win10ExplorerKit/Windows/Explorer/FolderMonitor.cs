@@ -4,6 +4,7 @@ using System.Linq;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using System.Windows.Threading;
 
 namespace Win10ExplorerKit.Windows.Explorer
 {
@@ -25,7 +26,7 @@ namespace Win10ExplorerKit.Windows.Explorer
         private readonly Dictionary<IntPtr, (object Browser, int ProcessId)> _browsers =
             new Dictionary<IntPtr, (object, int)>();
         private readonly FolderSession _session;
-        private readonly Timer _timer = new Timer();
+        private readonly DispatcherTimer _timer = new DispatcherTimer();
         private readonly Action<int> _windowsChanged;
         private readonly NavigationEvent _navigated;
         private readonly int _taskbarCreated = NativeMethods.RegisterWindowMessage("TaskbarCreated");
@@ -54,7 +55,7 @@ namespace Win10ExplorerKit.Windows.Explorer
         {
             if (_disposed || _ending) return;
             _timer.Stop();
-            _timer.Interval = delay;
+            _timer.Interval = TimeSpan.FromMilliseconds(delay);
             _timer.Start();
         }
 
@@ -179,7 +180,7 @@ namespace Win10ExplorerKit.Windows.Explorer
         public void Dispose()
         {
             _disposed = true;
-            _timer.Dispose();
+            _timer.Stop();
             Disconnect();
             DestroyHandle();
         }

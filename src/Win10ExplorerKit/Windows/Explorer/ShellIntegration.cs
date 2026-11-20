@@ -1,5 +1,4 @@
 using System;
-using System.Windows.Forms;
 using Microsoft.Win32;
 using Win10ExplorerKit.Windows.Startup;
 
@@ -21,7 +20,7 @@ namespace Win10ExplorerKit.Windows.Explorer
         /// </summary>
         public static void Install()
         {
-            string quotedExe = "\"" + Application.ExecutablePath + "\"";
+            string quotedExe = "\"" + AppPaths.ExecutablePath + "\"";
             foreach (string path in MenuRoots)
             {
                 using (RegistryKey key = Registry.CurrentUser.CreateSubKey(path))
@@ -36,7 +35,7 @@ namespace Win10ExplorerKit.Windows.Explorer
                 }
             }
             HashShellRegistration.Install();
-            new StartupRegistration(Application.ExecutablePath).SetEnabled(true);
+            new StartupRegistration(AppPaths.ExecutablePath).SetEnabled(true);
             RefreshLabels();
         }
 
@@ -69,7 +68,7 @@ namespace Win10ExplorerKit.Windows.Explorer
             {
                 Registry.CurrentUser.DeleteSubKeyTree(path, false);
             }
-            new StartupRegistration(Application.ExecutablePath).SetEnabled(false);
+            new StartupRegistration(AppPaths.ExecutablePath).SetEnabled(false);
             Registry.CurrentUser.DeleteSubKeyTree(@"Software\Win10ExplorerKit", false);
             NativeMethods.SHChangeNotify(AssociationChanged, 0, IntPtr.Zero, IntPtr.Zero);
         }

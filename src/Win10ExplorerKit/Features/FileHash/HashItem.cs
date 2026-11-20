@@ -2,7 +2,7 @@ using System.Threading;
 
 namespace Win10ExplorerKit.Features.FileHash
 {
-    internal enum HashState { Waiting, Reading, Complete, Failed, Canceled, Empty }
+    internal enum HashState { Waiting, Reading, Complete, Failed, Canceled }
 
     internal sealed class HashItem
     {

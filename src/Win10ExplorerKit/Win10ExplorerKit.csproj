@@ -3,6 +3,11 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net48</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <StartupObject>Win10ExplorerKit.Program</StartupObject>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="Exists('packages.lock.json')">true</RestoreLockedMode>
     <RootNamespace>Win10ExplorerKit</RootNamespace>
     <AssemblyTitle>Win10 Explorer Kit</AssemblyTitle>
     <ApplicationIcon>Resources\app.ico</ApplicationIcon>
@@ -11,8 +16,12 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
     <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Web" />
     <Reference Include="Microsoft.CSharp" />
+    <Resource Include="Resources\app.ico" />
+    <Resource Include="Resources\app.png" />
     <EmbeddedResource Include="Localization\Locales\*.json" LogicalName="locales.%(Filename)%(Extension)" />
     <Content Include="Localization\Locales\*.json" Link="locales\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <InternalsVisibleTo Include="Win10ExplorerKit.Tests" />

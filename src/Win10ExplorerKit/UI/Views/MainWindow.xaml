@@ -1,0 +1,43 @@
+<Window x:Class="Win10ExplorerKit.UI.Views.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework" xmlns:s="clr-namespace:Win10ExplorerKit.UI.Services" xmlns:pages="clr-namespace:Win10ExplorerKit.UI.Views.Pages"
+ Title="Win10 Explorer Kit" Width="960" Height="640" MinWidth="730" MinHeight="450" FontSize="14" FontFamily="Segoe UI" WindowStartupLocation="CenterScreen" Background="{DynamicResource KitShellBrush}" WindowStyle="None" Icon="/Resources/app.ico">
+ <Window.Template>
+  <ControlTemplate TargetType="Window">
+   <Border x:Name="WindowFrame" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource KitBorderBrush}" BorderThickness="1">
+    <AdornerDecorator><ContentPresenter/></AdornerDecorator>
+   </Border>
+   <ControlTemplate.Triggers>
+    <Trigger Property="WindowState" Value="Maximized"><Setter TargetName="WindowFrame" Property="Padding" Value="{x:Static SystemParameters.WindowResizeBorderThickness}"/></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate>
+ </Window.Template>
+ <Grid>
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+  <Grid x:Name="CaptionArea" Height="48" Background="Transparent">
+   <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0" IsHitTestVisible="False">
+    <Image RenderOptions.BitmapScalingMode="HighQuality" Source="/Win10ExplorerKit;component/Resources/app.png" Width="20" Height="20" Margin="0,0,12,0"/>
+    <TextBlock Text="Win10 Explorer Kit" FontSize="14" VerticalAlignment="Center"/>
+   </StackPanel>
+   <StackPanel x:Name="CaptionButtons" shell:WindowChrome.IsHitTestVisibleInChrome="True" Orientation="Horizontal" HorizontalAlignment="Right">
+    <ui:Button Cursor="Hand" Style="{StaticResource CaptionButton}" Click="MinimizeWindow" AutomationProperties.Name="{Binding [window.minimize], Source={x:Static s:LocalizedText.Instance}}"><ui:SymbolIcon Symbol="Subtract16" FontSize="14"/></ui:Button>
+    <ui:Button Cursor="Hand" Style="{StaticResource CaptionButton}" Click="ToggleMaximize" AutomationProperties.Name="{Binding [window.maximize], Source={x:Static s:LocalizedText.Instance}}">
+     <ui:SymbolIcon FontSize="14"><ui:SymbolIcon.Style><Style TargetType="ui:SymbolIcon"><Setter Property="Symbol" Value="Square16"/><Style.Triggers><DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}" Value="Maximized"><Setter Property="Symbol" Value="SquareMultiple16"/></DataTrigger></Style.Triggers></Style></ui:SymbolIcon.Style></ui:SymbolIcon>
+    </ui:Button>
+    <ui:Button Cursor="Hand" Style="{StaticResource CaptionButton}" Template="{StaticResource CaptionCloseTemplate}" Click="CloseWindow" AutomationProperties.Name="{Binding [common.close], Source={x:Static s:LocalizedText.Instance}}"/>
+   </StackPanel>
+  </Grid>
+  <ui:NavigationView x:Name="Navigation" Grid.Row="1" PaneDisplayMode="Left" OpenPaneLength="200" IsBackButtonVisible="Collapsed" IsPaneToggleVisible="True">
+   <ui:NavigationView.Resources>
+    <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent"/>
+    <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent"/>
+   </ui:NavigationView.Resources>
+   <ui:NavigationView.MenuItems>
+    <ui:NavigationViewItem Cursor="Hand" Content="{Binding [hash.title], Source={x:Static s:LocalizedText.Instance}}" TargetPageType="{x:Type pages:HashPage}"><ui:NavigationViewItem.Icon><ui:SymbolIcon Symbol="NumberSymbol24" Foreground="{DynamicResource KitAccentTextBrush}"/></ui:NavigationViewItem.Icon></ui:NavigationViewItem>
+    <ui:NavigationViewItem Cursor="Hand" Content="{Binding [settings.folders], Source={x:Static s:LocalizedText.Instance}}" TargetPageType="{x:Type pages:FoldersPage}"><ui:NavigationViewItem.Icon><ui:SymbolIcon Symbol="Folder24" Foreground="{DynamicResource KitFolderBrush}"/></ui:NavigationViewItem.Icon></ui:NavigationViewItem>
+   </ui:NavigationView.MenuItems>
+   <ui:NavigationView.FooterMenuItems>
+    <ui:NavigationViewItem Cursor="Hand" Content="{Binding [settings.title], Source={x:Static s:LocalizedText.Instance}}" TargetPageType="{x:Type pages:SettingsPage}"><ui:NavigationViewItem.Icon><ui:SymbolIcon Symbol="Settings24" Foreground="{DynamicResource KitAccentTextBrush}"/></ui:NavigationViewItem.Icon></ui:NavigationViewItem>
+   </ui:NavigationView.FooterMenuItems>
+  </ui:NavigationView>
+  <ui:SnackbarPresenter x:Name="Notifications" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="24,16,24,0"/>
+ </Grid>
+</Window>

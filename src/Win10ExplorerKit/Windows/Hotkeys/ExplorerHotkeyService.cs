@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using System.Windows.Threading;
 
 namespace Win10ExplorerKit.Windows.Hotkeys
 {
@@ -12,7 +13,7 @@ namespace Win10ExplorerKit.Windows.Hotkeys
         private const int WmHotkey = 0x0312;
         // Control, Shift and no-repeat modifier flags for RegisterHotKey
         private const uint Modifiers = 0x0002 | 0x0004 | 0x4000;
-        private readonly Timer _timer = new Timer { Interval = 80 };
+        private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
         private readonly Action _copy;
         private readonly Action _conflict;
         private bool _registered;
@@ -80,7 +81,7 @@ namespace Win10ExplorerKit.Windows.Hotkeys
         public void Dispose()
         {
             _timer.Stop();
-            _timer.Dispose();
+            _timer.Stop();
             if (_registered) NativeMethods.UnregisterHotKey(Handle, HotkeyId);
             DestroyHandle();
         }

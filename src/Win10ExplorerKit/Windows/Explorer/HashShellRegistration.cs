@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using Microsoft.Win32;
-using System.Windows.Forms;
 
 namespace Win10ExplorerKit.Windows.Explorer
 {
@@ -54,7 +53,7 @@ namespace Win10ExplorerKit.Windows.Explorer
             foreach (string path in MenuPaths)
             using (RegistryKey key = Registry.CurrentUser.CreateSubKey(path))
             {
-                key.SetValue("Icon", "\"" + Application.ExecutablePath + "\",0");
+                key.SetValue("Icon", "\"" + AppPaths.ExecutablePath + "\",0");
                 key.SetValue("MultiSelectModel", "Player");
                 using (RegistryKey command = key.CreateSubKey("command"))
                     command.SetValue("DelegateExecute", ClassId);
