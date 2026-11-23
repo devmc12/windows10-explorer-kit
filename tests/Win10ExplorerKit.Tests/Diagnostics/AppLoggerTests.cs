@@ -33,9 +33,25 @@ namespace Win10ExplorerKit.Tests.Diagnostics
 
             string detail = AppLogger.DescribeException(exception);
 
-            Assert.AreEqual("System.IO.FileNotFoundException (HRESULT 0x" + exception.HResult.ToString("X8") + ")", detail);
+            StringAssert.Contains(detail, "System.IO.FileNotFoundException (HRESULT 0x" + exception.HResult.ToString("X8") + ")");
+            StringAssert.Contains(detail, "System.IO.IOException (HRESULT 0x" + inner.HResult.ToString("X8") + ")");
             Assert.IsFalse(detail.Contains("private-"));
             Assert.IsFalse(detail.Contains(@"C:\Example"));
+        }
+
+        /// <summary>Retains a useful call site without source filenames or exception payloads</summary>
+        [TestMethod]
+        public void CallSitesContainOnlyMethodMetadata()
+        {
+            try { throw new IOException(@"private-message C:\Example\private-document.txt"); }
+            catch (IOException exception)
+            {
+                string detail = AppLogger.DescribeException(exception);
+                StringAssert.Contains(detail, nameof(CallSitesContainOnlyMethodMetadata));
+                Assert.IsFalse(detail.Contains("private-message"));
+                Assert.IsFalse(detail.Contains(@"C:\Example"));
+                Assert.IsFalse(detail.Contains(".cs:"));
+            }
         }
     }
 }

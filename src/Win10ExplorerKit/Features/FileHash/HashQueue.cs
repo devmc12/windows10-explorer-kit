@@ -37,13 +37,22 @@ namespace Win10ExplorerKit.Features.FileHash
             if (Array.IndexOf(FileHasher.ParallelOptions, parallelism) < 0) throw new ArgumentOutOfRangeException(nameof(parallelism));
             if (Array.IndexOf(FileHasher.FolderDepthOptions, folderDepth) < 0) throw new ArgumentOutOfRangeException(nameof(folderDepth));
             _folderDepth = folderDepth == 0 ? int.MaxValue : folderDepth;
-            if (existingFiles != null) _seenFiles.UnionWith(existingFiles);
-            var tasks = new List<Task> { Task.Factory.StartNew(Discover, CancellationToken.None,
-                TaskCreationOptions.LongRunning, TaskScheduler.Default) };
-            for (int i = 0; i < parallelism; i++)
-                tasks.Add(Task.Factory.StartNew(() => Calculate(algorithm), CancellationToken.None,
-                    TaskCreationOptions.LongRunning, TaskScheduler.Default));
-            _completion = Task.WhenAll(tasks);
+            string[] existing = existingFiles?.ToArray();
+            // Creating up to a hundred worker threads must not stall shell-batch acceptance
+            _completion = Task.Run(async () =>
+            {
+                if (existing != null) _seenFiles.UnionWith(existing);
+                var tasks = new List<Task>();
+                try
+                {
+                    tasks.Add(Task.Factory.StartNew(Discover, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default));
+                    for (int i = 0; i < parallelism; i++)
+                        tasks.Add(Task.Factory.StartNew(() => Calculate(algorithm), CancellationToken.None,
+                            TaskCreationOptions.LongRunning, TaskScheduler.Default));
+                }
+                catch { _cancel.Cancel(); throw; }
+                finally { await Task.WhenAll(tasks).ConfigureAwait(false); }
+            });
         }
 
         /// <summary>Appends a bounded UI or shell batch without touching the filesystem on the caller</summary>
@@ -208,10 +217,13 @@ namespace Win10ExplorerKit.Features.FileHash
         internal async Task StopAsync()
         {
             _cancel.Cancel();
-            await _completion;
-            while (_files.TryTake(out HashItem item)) item.State = HashState.Canceled;
-            Interlocked.Exchange(ref _requestsPending, 0);
-            Interlocked.Exchange(ref _filesPending, 0);
+            try { await _completion.ConfigureAwait(false); }
+            finally
+            {
+                while (_files.TryTake(out HashItem item)) item.State = HashState.Canceled;
+                Interlocked.Exchange(ref _requestsPending, 0);
+                Interlocked.Exchange(ref _filesPending, 0);
+            }
         }
 
         /// <summary>Releases queues after StopAsync has completed</summary>

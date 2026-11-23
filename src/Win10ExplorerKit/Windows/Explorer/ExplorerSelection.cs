@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
+using System.Threading;
 
 namespace Win10ExplorerKit.Windows.Explorer
 {
@@ -31,59 +32,58 @@ namespace Win10ExplorerKit.Windows.Explorer
         }
 
         /// <summary>
-        /// Reads the selection from the foreground Explorer window on demand
+        /// Reads a captured Explorer selection and releases every COM reference on the calling STA
         /// </summary>
+        /// <param name="foreground">Explorer window captured when the shortcut was pressed</param>
+        /// <param name="cancellationToken">Stops enumeration between COM calls after timeout or shutdown</param>
         /// <returns>Selected paths, or an empty list when the window is unavailable</returns>
-        public static List<string> GetSelectedPaths()
+        public static List<string> GetSelectedPaths(IntPtr foreground, CancellationToken cancellationToken)
         {
             var result = new List<string>();
-            IntPtr foreground = NativeMethods.GetForegroundWindow();
-            if (foreground == IntPtr.Zero || !IsExplorerWindow(foreground))
-            {
-                return result;
-            }
-
+            if (!IsFileExplorerWindow(foreground)) return result;
+            object windows = null;
             try
             {
-                Type shellType = Type.GetTypeFromProgID("Shell.Application");
-                if (shellType == null)
-                {
-                    return result;
-                }
-
-                dynamic shell = Activator.CreateInstance(shellType);
-                dynamic windows = shell.Windows();
-                int windowCount = Convert.ToInt32(windows.Count);
+                cancellationToken.ThrowIfCancellationRequested();
+                windows = ExplorerFolders.Connect();
+                int windowCount = Convert.ToInt32(ExplorerFolders.Member(windows, "Count"));
                 for (int windowIndex = 0; windowIndex < windowCount; windowIndex++)
                 {
-                    dynamic window = windows.Item(windowIndex);
-                    long windowHandle = Convert.ToInt64(window.HWND);
-                    if (new IntPtr(windowHandle) != foreground)
+                    cancellationToken.ThrowIfCancellationRequested();
+                    object window = null, document = null, selected = null;
+                    try
                     {
-                        continue;
-                    }
-
-                    dynamic selected = window.Document.SelectedItems();
-                    int selectedCount = Convert.ToInt32(selected.Count);
-                    for (int itemIndex = 0; itemIndex < selectedCount; itemIndex++)
-                    {
-                        dynamic item = selected.Item(itemIndex);
-                        string path = Convert.ToString(item.Path);
-                        if (!string.IsNullOrWhiteSpace(path))
+                        window = ExplorerFolders.Member(windows, "Item", windowIndex);
+                        if (window == null) continue;
+                        long windowHandle = Convert.ToInt64(ExplorerFolders.Member(window, "HWND"));
+                        if (new IntPtr(windowHandle) != foreground) continue;
+                        document = ExplorerFolders.Member(window, "Document");
+                        if (document == null) return result;
+                        selected = ExplorerFolders.Member(document, "SelectedItems");
+                        int selectedCount = Convert.ToInt32(ExplorerFolders.Member(selected, "Count"));
+                        for (int itemIndex = 0; itemIndex < selectedCount; itemIndex++)
                         {
-                            result.Add(path);
+                            cancellationToken.ThrowIfCancellationRequested();
+                            object item = ExplorerFolders.Member(selected, "Item", itemIndex);
+                            try
+                            {
+                                string path = Convert.ToString(ExplorerFolders.Member(item, "Path"));
+                                if (!string.IsNullOrWhiteSpace(path)) result.Add(path);
+                            }
+                            finally { ExplorerFolders.Release(item); }
                         }
+                        break;
                     }
-
-                    break;
+                    finally
+                    {
+                        ExplorerFolders.Release(selected);
+                        ExplorerFolders.Release(document);
+                        ExplorerFolders.Release(window);
+                    }
                 }
             }
-            catch
-            {
-                // Explorer may be closing or showing a virtual folder. In that case there
-                // is no usable filesystem selection to copy
-            }
-
+            finally { ExplorerFolders.Release(windows); }
+            cancellationToken.ThrowIfCancellationRequested();
             return result;
         }
 

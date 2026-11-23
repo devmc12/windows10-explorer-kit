@@ -14,7 +14,7 @@ namespace Win10ExplorerKit.Windows.Explorer
         private const int Registered = 200, Revoked = 201;
         // DWebBrowserEvents2 dispatch identifier for completed navigation
         private const int Navigated = 252;
-        // Private WM_APP message that transfers COM callbacks to the owning tray thread
+        // Private WM_APP message that transfers COM callbacks to the dedicated folder STA
         private const int FoldersChanged = 0x8001;
         // Quiet interval in milliseconds for a burst of shell events
         private const int DebounceMilliseconds = 900;
@@ -35,9 +35,11 @@ namespace Win10ExplorerKit.Windows.Explorer
         private bool _reconnect;
         private bool _ending;
         private bool _disposed;
+        private bool _refreshing;
+        private bool _resourcesReleased;
 
         /// <summary>Subscribes once, then refreshes only after shell events or connection failures</summary>
-        /// <param name="session">Snapshot store owned by the tray thread</param>
+        /// <param name="session">Snapshot store owned by the dedicated folder STA</param>
         internal FolderMonitor(FolderSession session)
         {
             _session = session;
@@ -46,10 +48,10 @@ namespace Win10ExplorerKit.Windows.Explorer
             _timer.Tick += (sender, args) => Refresh();
             // An invisible top-level window receives Explorer restart and shutdown broadcasts
             CreateHandle(new CreateParams { ExStyle = 0x80 });
-            Refresh();
+            Schedule(DebounceMilliseconds);
         }
 
-        /// <summary>Coalesces shell notifications into one enumeration on the UI apartment</summary>
+        /// <summary>Coalesces shell notifications into one enumeration on the folder apartment</summary>
         /// <param name="delay">Delay in milliseconds</param>
         private void Schedule(int delay)
         {
@@ -64,6 +66,8 @@ namespace Win10ExplorerKit.Windows.Explorer
         {
             _timer.Stop();
             if (_disposed || _ending) return;
+            if (_refreshing) { Schedule(DebounceMilliseconds); return; }
+            _refreshing = true;
             try
             {
                 if (_reconnect)
@@ -81,6 +85,7 @@ namespace Win10ExplorerKit.Windows.Explorer
                 IntPtr[] old = _browsers.Keys.ToArray();
                 string[] paths = ExplorerFolders.Read(_windows, (handle, browser) =>
                 {
+                    if (_disposed || _ending) return false;
                     active.Add(handle);
                     if (_browsers.ContainsKey(handle)) return false;
                     ComEventsHelper.Combine(browser, BrowserEvents, Navigated, _navigated);
@@ -88,6 +93,7 @@ namespace Win10ExplorerKit.Windows.Explorer
                     _browsers.Add(handle, (browser, (int)processId));
                     return true;
                 });
+                if (_disposed || _ending) return;
                 var lost = old.Where(h => !active.Contains(h)).ToArray();
                 // A separate Explorer process may exit while windows from another process survive
                 if (lost.Length > 0 && (lost.Length == old.Length ||
@@ -98,6 +104,7 @@ namespace Win10ExplorerKit.Windows.Explorer
             }
             catch (Exception ex)
             {
+                if (_disposed) return;
                 if (_retry == DebounceMilliseconds)
                 {
                     _session.Preserve();
@@ -106,6 +113,11 @@ namespace Win10ExplorerKit.Windows.Explorer
                 Disconnect();
                 _retry = Math.Min(_retry * 2, MaxRetryMilliseconds);
                 Schedule(_retry);
+            }
+            finally
+            {
+                _refreshing = false;
+                if (_disposed) ReleaseResources();
             }
         }
 
@@ -122,10 +134,10 @@ namespace Win10ExplorerKit.Windows.Explorer
         /// <param name="handle">Window that closed or lost its shell connection</param>
         private void RemoveBrowser(IntPtr handle)
         {
-            object browser = _browsers[handle].Browser;
-            Detach(browser, BrowserEvents, Navigated, _navigated);
-            ExplorerFolders.Release(browser);
+            if (!_browsers.TryGetValue(handle, out var entry)) return;
             _browsers.Remove(handle);
+            try { Detach(entry.Browser, BrowserEvents, Navigated, _navigated); }
+            finally { ExplorerFolders.Release(entry.Browser); }
         }
 
         /// <summary>Unsubscribes from a possibly disconnected Explorer process</summary>
@@ -142,12 +154,20 @@ namespace Win10ExplorerKit.Windows.Explorer
         /// <summary>Releases all subscriptions before reconnecting or disabling monitoring</summary>
         private void Disconnect()
         {
-            foreach (IntPtr key in _browsers.Keys.ToArray()) RemoveBrowser(key);
-            if (_windows == null) return;
-            Detach(_windows, ShellEvents, Registered, _windowsChanged);
-            Detach(_windows, ShellEvents, Revoked, _windowsChanged);
-            ExplorerFolders.Release(_windows);
+            foreach (IntPtr key in _browsers.Keys.ToArray())
+            {
+                try { RemoveBrowser(key); }
+                catch (Exception ex) { AppLogger.Write("Folder subscription cleanup failed", ex); }
+            }
+            object windows = _windows;
             _windows = null;
+            if (windows == null) return;
+            try
+            {
+                Detach(windows, ShellEvents, Registered, _windowsChanged);
+                Detach(windows, ShellEvents, Revoked, _windowsChanged);
+            }
+            finally { ExplorerFolders.Release(windows); }
         }
 
         /// <summary>Freezes recovery during shutdown and reconnects when Explorer restarts</summary>
@@ -179,10 +199,19 @@ namespace Win10ExplorerKit.Windows.Explorer
         /// <summary>Stops all callbacks and releases the hidden broadcast receiver</summary>
         public void Dispose()
         {
+            if (_disposed) return;
             _disposed = true;
             _timer.Stop();
-            Disconnect();
-            DestroyHandle();
+            // A COM call can pump a queued disable request before its enumeration returns
+            if (!_refreshing) ReleaseResources();
+        }
+        /// <summary>Releases the apartment-owned handles only after active enumeration has unwound</summary>
+        private void ReleaseResources()
+        {
+            if (_resourcesReleased) return;
+            _resourcesReleased = true;
+            try { Disconnect(); }
+            finally { DestroyHandle(); }
         }
     }
 }

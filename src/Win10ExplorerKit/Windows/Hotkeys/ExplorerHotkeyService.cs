@@ -14,19 +14,22 @@ namespace Win10ExplorerKit.Windows.Hotkeys
         // Control, Shift and no-repeat modifier flags for RegisterHotKey
         private const uint Modifiers = 0x0002 | 0x0004 | 0x4000;
         private readonly DispatcherTimer _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
-        private readonly Action _copy;
+        private readonly Action<IntPtr> _copy;
+        private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
         private readonly Action _conflict;
         private bool _registered;
         private IntPtr _previous;
         private DateTime _retry;
         private int _error;
+        private bool _copyPending;
+        private bool _disposed;
 
         /// <summary>
         /// Creates a message-only window so shortcut lifetime is independent of GUI forms
         /// </summary>
         /// <param name="copy">Action invoked for a valid Explorer shortcut</param>
         /// <param name="conflict">Notification invoked on a new registration error</param>
-        public ExplorerHotkeyService(Action copy, Action conflict)
+        public ExplorerHotkeyService(Action<IntPtr> copy, Action conflict)
         {
             _copy = copy;
             _conflict = conflict;
@@ -70,8 +73,19 @@ namespace Win10ExplorerKit.Windows.Hotkeys
         /// <param name="message">Native message being dispatched</param>
         protected override void WndProc(ref Message message)
         {
-            if (message.Msg == WmHotkey && message.WParam.ToInt32() == HotkeyId &&
-                ExplorerSelection.IsFileExplorerWindow(NativeMethods.GetForegroundWindow())) _copy();
+            if (!_disposed && !_copyPending && message.Msg == WmHotkey && message.WParam.ToInt32() == HotkeyId)
+            {
+                IntPtr foreground = NativeMethods.GetForegroundWindow();
+                if (ExplorerSelection.IsFileExplorerWindow(foreground))
+                {
+                    _copyPending = true;
+                    _dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(() =>
+                    {
+                        try { if (!_disposed) _copy(foreground); }
+                        finally { _copyPending = false; }
+                    }));
+                }
+            }
             base.WndProc(ref message);
         }
 
@@ -80,7 +94,8 @@ namespace Win10ExplorerKit.Windows.Hotkeys
         /// </summary>
         public void Dispose()
         {
-            _timer.Stop();
+            if (_disposed) return;
+            _disposed = true;
             _timer.Stop();
             if (_registered) NativeMethods.UnregisterHotKey(Handle, HotkeyId);
             DestroyHandle();

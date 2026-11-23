@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Win10ExplorerKit.Diagnostics
 {
@@ -10,6 +12,12 @@ namespace Win10ExplorerKit.Diagnostics
     {
         // Daily log directory beside the executable
         public static readonly string LogDirectory = Path.Combine(AppPaths.DataDirectory, "logs");
+        // Drop excess diagnostics rather than retaining unbounded data behind a stalled disk
+        private const int MaximumPendingEntries = 256;
+        private static readonly object PendingLock = new object();
+        private static readonly Queue<(DateTime Time, string Text)> Pending = new Queue<(DateTime, string)>();
+        private static Task _writer = Task.CompletedTask;
+        private static bool _writing;
 
         /// <summary>
         /// Appends diagnostics without interrupting clipboard or hotkey handling
@@ -18,8 +26,38 @@ namespace Win10ExplorerKit.Diagnostics
         /// <param name="exception">Optional exception whose type and error code are safe to record</param>
         public static void Write(string message, Exception exception)
         {
-            Write(LogDirectory, DateTime.Now, message, exception);
+            try
+            {
+                DateTime now = DateTime.Now;
+                string text = FormatEntry(now, message, exception);
+                lock (PendingLock)
+                {
+                    if (Pending.Count >= MaximumPendingEntries) return;
+                    Pending.Enqueue((now, text));
+                    if (!_writing) { _writing = true; _writer = Task.Run(Drain); }
+                }
+            }
+            catch { }
         }
+
+        /// <summary>Writes queued records serially without performing disk I/O on event handlers</summary>
+        private static void Drain()
+        {
+            while (true)
+            {
+                (DateTime Time, string Text) entry;
+                lock (PendingLock)
+                {
+                    if (Pending.Count == 0) { _writing = false; return; }
+                    entry = Pending.Dequeue();
+                }
+                Append(LogDirectory, entry.Time, entry.Text);
+            }
+        }
+
+        /// <summary>Exposes current writer completion for bounded shutdown flushing</summary>
+        /// <returns>Current write task</returns>
+        internal static Task FlushAsync() { lock (PendingLock) return _writer; }
 
         /// <summary>Appends the event to its local calendar day's log</summary>
         /// <param name="directory">Log folder</param>
@@ -27,17 +65,27 @@ namespace Win10ExplorerKit.Diagnostics
         /// <param name="message">Diagnostic event</param>
         /// <param name="exception">Optional sanitized exception</param>
         internal static void Write(string directory, DateTime now, string message, Exception exception)
+            => Append(directory, now, FormatEntry(now, message, exception));
+
+        /// <summary>Formats safe metadata before it enters the bounded log queue</summary>
+        /// <param name="now">Event timestamp</param><param name="message">Event name</param><param name="exception">Optional sanitized exception</param>
+        /// <returns>One complete log record</returns>
+        private static string FormatEntry(DateTime now, string message, Exception exception)
+        {
+            using (var process = Process.GetCurrentProcess())
+                return now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + " [" + process.Id + "] " + message +
+                    (exception == null ? "" : Environment.NewLine + DescribeException(exception)) + Environment.NewLine;
+        }
+
+        /// <summary>Appends a preformatted record to its original local date</summary>
+        /// <param name="directory">Log directory</param><param name="now">Original event timestamp</param><param name="text">Sanitized log text</param>
+        private static void Append(string directory, DateTime now, string text)
         {
             try
             {
                 Directory.CreateDirectory(directory);
                 string path = Path.Combine(directory, now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + ".log");
-                File.AppendAllText(path,
-                    now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + " [" +
-                    Process.GetCurrentProcess().Id + "] " + message +
-                    (exception == null ? "" : Environment.NewLine + DescribeException(exception)) +
-                    Environment.NewLine,
-                    Encoding.UTF8);
+                File.AppendAllText(path, text, Encoding.UTF8);
             }
             catch
             {
@@ -46,10 +94,10 @@ namespace Win10ExplorerKit.Diagnostics
         }
 
         /// <summary>
-        /// Keeps diagnostic identifiers without exception messages, paths, stack traces or custom data
+        /// Keeps diagnostic identifiers and method names without exception messages, paths or custom data
         /// </summary>
         /// <param name="exception">Failure whose payload must remain private</param>
-        /// <returns>The exception type and hexadecimal error code</returns>
+        /// <returns>Exception types, hexadecimal error codes and bounded method-only call sites</returns>
         internal static string DescribeException(Exception exception)
         {
             var description = new StringBuilder();
@@ -59,6 +107,16 @@ namespace Win10ExplorerKit.Diagnostics
                 if (depth > 0) description.Append(" -> ");
                 description.Append(exception.GetType().FullName).Append(" (HRESULT 0x")
                     .Append(exception.HResult.ToString("X8")).Append(')');
+                // Method metadata locates UI failures without exposing source paths or argument values
+                StackFrame[] frames = new StackTrace(exception, false).GetFrames();
+                if (frames == null) continue;
+                for (int index = 0; index < Math.Min(frames.Length, 16); index++)
+                {
+                    var method = frames[index].GetMethod();
+                    if (method == null) continue;
+                    description.Append(Environment.NewLine).Append("  at ")
+                        .Append(method.DeclaringType?.FullName).Append('.').Append(method.Name);
+                }
             }
             return description.ToString();
         }

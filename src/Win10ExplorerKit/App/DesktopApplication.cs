@@ -13,6 +13,8 @@ namespace Win10ExplorerKit.App
 {
     public partial class DesktopApplication : Application
     {
+        // Bound graceful worker shutdown below the installer's five-second host wait
+        private const int ShutdownTimeoutMilliseconds = 3500;
         private readonly SettingsService _settings;
         private readonly SingleInstance _instance;
         private readonly bool _hidden;
@@ -24,9 +26,16 @@ namespace Win10ExplorerKit.App
         private SettingsViewModel _preferences;
         private TrayController _tray;
         private ExplorerHotkeyService _hotkey;
+        private ExplorerCopyService _copy;
         private ActivationChannel _channel;
         private UI.Views.MainWindow _window;
         private bool _stopping;
+        private bool _openingWindow;
+        private bool _labelsPending;
+        private bool _updatingLabels;
+        private Task _labelRefresh = Task.CompletedTask;
+        private string _displayLanguage;
+        private string _displayTheme;
         /// <summary>Configures a dispatcher-owned host independently of visible windows</summary>
         /// <param name="settings">Persistent preferences</param><param name="instance">Session ownership</param><param name="hidden">Login startup mode</param><param name="page">Initial page</param><param name="plain">Legacy unquoted-path override</param>
         internal DesktopApplication(SettingsService settings, SingleInstance instance, bool hidden, string page, bool plain)
@@ -40,18 +49,20 @@ namespace Win10ExplorerKit.App
         protected override void OnStartup(StartupEventArgs args)
         {
             base.OnStartup(args); ApplyTheme();
+            _displayLanguage = _settings.Language; _displayTheme = _settings.Theme;
             _folders = new FolderRecoveryService(_settings);
             _hash = new HashViewModel(_settings, Notify);
             _preferences = new SettingsViewModel(_settings, _folders, Notify);
             _tray = new TrayController(_settings, _preferences, Open, async () => await StopAsync());
-            _hotkey = new ExplorerHotkeyService(() => CopyPathService.PutOnClipboard(ExplorerSelection.GetSelectedPaths(), _plain || !_settings.QuotePaths),
+            _copy = new ExplorerCopyService(Notify);
+            _hotkey = new ExplorerHotkeyService(window => { _ = _copy.CopyAsync(window, _plain || !_settings.QuotePaths); },
                 () => Notify(TranslationService.T("error.hotkey")));
-            _channel = new ActivationChannel(request => Dispatcher.InvokeAsync(() => Accept(request)).Task);
+            _channel = new ActivationChannel((request, token) => Dispatcher.InvokeAsync(() => Accept(request), DispatcherPriority.Background, token).Task);
             _settings.Changed += SettingsChanged;
             SystemEvents.UserPreferenceChanged += SystemChanged;
             _shutdown.Tick += async (sender, tick) => { if (_instance.StopRequested()) await StopAsync(); };
             _shutdown.Start();
-            ShellIntegration.RefreshLabels();
+            RefreshShellLabels();
             if (!_hidden) Open(_initialPage);
         }
         /// <summary>Accepts activation only while the application owns the session</summary><param name="request">Validated IPC request</param><returns>Accepted epoch or minus one when canceled</returns>
@@ -69,21 +80,48 @@ namespace Win10ExplorerKit.App
         /// <summary>Lazily creates the one visible navigation shell</summary><param name="page">Destination page</param>
         internal void Open(string page)
         {
-            if (_stopping) return;
-            if (_window == null) { _window = new UI.Views.MainWindow(_hash, _preferences); MainWindow = _window; }
-            _window.Open(page);
+            if (_stopping || _openingWindow) return;
+            _openingWindow = true;
+            try
+            {
+                if (_window == null) { _window = new UI.Views.MainWindow(_hash, _preferences); MainWindow = _window; }
+                _window.Open(page);
+            }
+            finally { _openingWindow = false; }
         }
         /// <summary>Routes feedback to the visible shell or the Windows notification area</summary><param name="message">Localized message</param>
         private void Notify(string message)
         {
+            if (_stopping) return;
             if (_window?.IsVisible == true) _window.Notify(message); else _tray?.Notify(message);
         }
         /// <summary>Refreshes themes and localized bindings after committed changes</summary><param name="sender">Settings service</param><param name="args">Changed event</param>
         private void SettingsChanged(object sender, EventArgs args)
         {
-            LocalizedText.Instance.Refresh(); _hash.Refresh(); ApplyTheme();
-            try { ShellIntegration.RefreshLabels(); }
-            catch (Exception ex) { AppLogger.Write("Shell labels update failed", ex); }
+            if (_stopping) return;
+            if (_displayLanguage != _settings.Language)
+            {
+                _displayLanguage = _settings.Language;
+                LocalizedText.Instance.Refresh(); _hash.RefreshLanguage(); RefreshShellLabels();
+            }
+            if (_displayTheme != _settings.Theme) { _displayTheme = _settings.Theme; ApplyTheme(); }
+        }
+        /// <summary>Coalesces registry and shell notifications without making settings changes wait for Explorer</summary>
+        private async void RefreshShellLabels()
+        {
+            _labelsPending = true;
+            if (_updatingLabels) return;
+            _updatingLabels = true;
+            try
+            {
+                while (_labelsPending && !_stopping)
+                {
+                    _labelsPending = false;
+                    try { _labelRefresh = Task.Run(ShellIntegration.RefreshLabels); await _labelRefresh; }
+                    catch (Exception ex) { AppLogger.Write("Shell labels update failed", ex); }
+                }
+            }
+            finally { _updatingLabels = false; }
         }
         /// <summary>Applies system preference changes on the dispatcher</summary><param name="sender">System event source</param><param name="args">Preference change</param>
         private void SystemChanged(object sender, UserPreferenceChangedEventArgs args)
@@ -104,17 +142,41 @@ namespace Win10ExplorerKit.App
         private async Task StopAsync()
         {
             if (_stopping) return; _stopping = true;
+            _hotkey?.Dispose(); _tray?.Dispose();
+            _copy?.Dispose();
+            _folders?.Dispose();
             _shutdown.Stop(); _channel?.Dispose();
-            await _hash.CloseAsync();
-            if (_window != null) { _window.AllowClose = true; _window.Close(); }
-            Shutdown();
+            try
+            {
+                Task cleanup = Task.WhenAll(_preferences.FlushAsync(), _hash.CloseAsync(), _folders.Completion,
+                    _copy.Completion, _channel.Completion, _labelRefresh);
+                if (await Task.WhenAny(cleanup, Task.Delay(ShutdownTimeoutMilliseconds)) == cleanup) await cleanup;
+                else
+                {
+                    AppLogger.Write("Worker shutdown exceeded grace period", null);
+                    _ = ObserveCleanupAsync(cleanup);
+                }
+            }
+            catch (Exception ex) { AppLogger.Write("Application shutdown cleanup failed", ex); }
+            finally
+            {
+                try { if (_window != null) { _window.AllowClose = true; _window.Close(); } }
+                finally { Shutdown(); }
+            }
+        }
+        /// <summary>Observes late worker failures without keeping an unresponsive shell process alive</summary>
+        /// <param name="cleanup">Combined worker completion</param><returns>Completion after workers finish</returns>
+        private static async Task ObserveCleanupAsync(Task cleanup)
+        {
+            try { await cleanup.ConfigureAwait(false); }
+            catch (Exception ex) { AppLogger.Write("Late worker cleanup failed", ex); }
         }
         /// <summary>Disposes process-owned subscriptions and adapters</summary><param name="args">Exit details</param>
         protected override void OnExit(ExitEventArgs args)
         {
             _stopping = true; _shutdown.Stop(); _channel?.Dispose();
             SystemEvents.UserPreferenceChanged -= SystemChanged; _settings.Changed -= SettingsChanged;
-            _hotkey?.Dispose(); _tray?.Dispose(); _preferences?.Dispose(); _folders?.Dispose();
+            _copy?.Dispose(); _hotkey?.Dispose(); _tray?.Dispose(); _preferences?.Dispose(); _folders?.Dispose();
             base.OnExit(args);
         }
     }

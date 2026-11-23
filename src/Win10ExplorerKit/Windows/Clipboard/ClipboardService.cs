@@ -1,6 +1,5 @@
 using System;
 using System.Runtime.InteropServices;
-using System.Threading;
 using System.Windows;
 
 namespace Win10ExplorerKit.Windows.Clipboard
@@ -14,24 +13,15 @@ namespace Win10ExplorerKit.Windows.Clipboard
         /// <returns>True if the clipboard accepted the text</returns>
         public static bool SetText(string text)
         {
-            // Clipboard ownership is transient; retry briefly without blocking indefinitely
-            for (int attempt = 0; attempt < 12; attempt++)
+            // WPF already retries OLE clipboard contention internally
+            // An outer retry loop multiplies those waits and can stall the caller for seconds
+            try
             {
-                try
-                {
-                    System.Windows.Clipboard.SetText(text, TextDataFormat.UnicodeText);
-                    return true;
-                }
-                catch (ExternalException)
-                {
-                    Thread.Sleep(40);
-                }
-                catch (InvalidOperationException)
-                {
-                    Thread.Sleep(40);
-                }
+                System.Windows.Clipboard.SetText(text, TextDataFormat.UnicodeText);
+                return true;
             }
-
+            catch (ExternalException) { }
+            catch (InvalidOperationException) { }
             return false;
         }
     }

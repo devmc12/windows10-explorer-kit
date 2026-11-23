@@ -42,15 +42,15 @@ namespace Win10ExplorerKit.UI.Views.Pages
             args.Handled = formatted.WidthIncludingTrailingWhitespace <= text.ActualWidth;
         }
         /// <summary>Copies a completed hash from any point inside its cell</summary><param name="sender">Hash cell</param><param name="args">Pointer event</param>
-        private void CopyValue(object sender, MouseButtonEventArgs args)
+        private async void CopyValue(object sender, MouseButtonEventArgs args)
         {
-            if (((FrameworkElement)sender).DataContext is HashRowViewModel row && row.CanCopy) { _model.Copy(row); args.Handled = true; }
+            if (((FrameworkElement)sender).DataContext is HashRowViewModel row && row.CanCopy) { args.Handled = true; await _model.CopyAsync(row); }
         }
         /// <summary>Supports keyboard copying of the selected result</summary><param name="sender">Results table</param><param name="args">Key event</param>
-        private void CopyKey(object sender, KeyEventArgs args)
+        private async void CopyKey(object sender, KeyEventArgs args)
         {
             if ((args.Key == Key.C && Keyboard.Modifiers == ModifierKeys.Control) || (args.Key == Key.Enter && Results.CurrentColumn == HashValueColumn))
-            { if (Results.SelectedItem is HashRowViewModel row) _model.Copy(row); args.Handled = true; }
+            { args.Handled = true; if (Results.SelectedItem is HashRowViewModel row) await _model.CopyAsync(row); }
         }
         /// <summary>Starts a new algorithm round</summary><param name="sender">Selector</param><param name="args">Selection event</param>
         private async void AlgorithmChanged(object sender, SelectionChangedEventArgs args)
@@ -66,7 +66,7 @@ namespace Win10ExplorerKit.UI.Views.Pages
                 await _model.SetFolderDepthAsync(depth);
         }
         /// <summary>Copies completed checksum lines</summary><param name="sender">Button</param><param name="args">Click</param>
-        private void CopyAll(object sender, RoutedEventArgs args) => _model.Copy();
+        private async void CopyAll(object sender, RoutedEventArgs args) => await _model.CopyAsync();
         /// <summary>Cancels pending work</summary><param name="sender">Button</param><param name="args">Click</param>
         private async void Cancel(object sender, RoutedEventArgs args) => await _model.CancelAsync();
         /// <summary>Clears the current round</summary><param name="sender">Button</param><param name="args">Click</param>

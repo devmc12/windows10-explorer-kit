@@ -2,6 +2,15 @@
 
 All notable changes to Win10 Explorer Kit are documented here.
 
+## [2.0.1] - 2026-11-23
+
+### Fixed
+
+- Fixed an error when opening the tray menu.
+- Fixed UI freezes when copying paths or automatically recording Explorer folders.
+- Improved responsiveness when hashing large selections and saving settings.
+- Improved application shutdown and background task cleanup.
+
 ## [2.0.0] - 2026-11-20
 
 ### Added

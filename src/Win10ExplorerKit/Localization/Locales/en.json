@@ -8,6 +8,7 @@
   "error.setup": "Setup failed: {0}",
   "error.language": "Could not update language settings. See the log for details.",
   "error.hotkey": "Could not register Ctrl+Shift+C. Another app may be using it. See the log for details.",
+  "error.copyPaths": "Could not copy the paths. Try again when Explorer is responding.",
   "tray.settings": "Settings...",
   "settings.title": "Settings",
   "settings.language": "Language",

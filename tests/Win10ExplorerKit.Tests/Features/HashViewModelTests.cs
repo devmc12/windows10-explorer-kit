@@ -26,9 +26,9 @@ namespace Win10ExplorerKit.Tests.Features
             model.AddPaths(new[] { file, folder, file });
             await WaitFor(() => !model.IsBusy && model.Rows.Count == 2);
             Assert.IsTrue(model.Rows.All(row => row.CanCopy));
-            model.Copy(model.Rows[0]);
+            await model.CopyAsync(model.Rows[0]);
             Assert.AreEqual(model.Rows[0].Value, copied());
-            model.Copy();
+            await model.CopyAsync();
             Assert.AreEqual(2, copied().Split(new[] { Environment.NewLine }, StringSplitOptions.None).Length);
             await model.ChangeAsync(false, "MD5");
             await WaitFor(() => !model.IsBusy && model.Rows.Count == 2);

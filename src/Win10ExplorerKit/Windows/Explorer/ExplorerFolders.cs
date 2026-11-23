@@ -66,7 +66,7 @@ namespace Win10ExplorerKit.Windows.Explorer
         /// <param name="name">Member name from the shell type library</param>
         /// <param name="arguments">Optional member arguments</param>
         /// <returns>Automation value or an owned COM reference</returns>
-        private static object Member(object source, string name, params object[] arguments) =>
+        internal static object Member(object source, string name, params object[] arguments) =>
             source.GetType().InvokeMember(name, BindingFlags.GetProperty | BindingFlags.InvokeMethod,
                 null, source, arguments);
 

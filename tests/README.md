@@ -10,7 +10,7 @@ fallback, path formatting, AnyCPU metadata, diagnostic privacy, portable first-r
 registration, startup registration, theme persistence, daily log rotation,
 folder snapshots, application-data cleanup and file hashing (known vectors,
 folder-depth expansion, deduplication, parallel batches, cancellation and failures),
-and dispatcher-owned hash view models. Real Explorer
+dispatcher-owned hash view models and STA worker shutdown. Real Explorer
 interaction, login startup and native 32-bit Windows need separate verification.
 
 Optional Shell integration check after building:

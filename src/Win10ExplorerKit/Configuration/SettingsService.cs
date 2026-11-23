@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using Microsoft.Win32;
 using System.Web.Script.Serialization;
+using System.Threading.Tasks;
 using Win10ExplorerKit.Features.FileHash;
 
 namespace Win10ExplorerKit.Configuration
@@ -104,19 +105,24 @@ namespace Win10ExplorerKit.Configuration
         /// Saves a complete preferences snapshot before notifying all open interfaces
         /// </summary>
         /// <param name="options">Validated UI or command-line preferences</param>
-        public void Save(AppOptions options)
+        public void Save(AppOptions options) => SaveAsync(options, false).GetAwaiter().GetResult();
+
+        /// <summary>Persists preferences off the UI thread before publishing committed values on the caller's context</summary>
+        /// <param name="options">Validated preference snapshot</param><param name="background">Use background persistence for interactive callers</param>
+        /// <returns>Completion after persistence and change notifications</returns>
+        internal async Task SaveAsync(AppOptions options, bool background = true)
         {
             string[] folders = FolderPaths.Distinct(options.FixedFolders, true);
             string canonical = TranslationService.Resolve(options.Language);
             if (!string.Equals(canonical, options.Language, StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("Unsupported language", "options");
-            _store.Update(delegate (IniDocument document)
+            await UpdateAsync(delegate (IniDocument document)
             {
                 document.Set("General", "Language", canonical);
                 document.Set("Copy", "QuotePaths", options.QuotePaths ? "true" : "false");
                 document.Set("Folders", "Remember", options.RememberFolders ? "true" : "false");
                 document.Set("Folders", "Fixed", new JavaScriptSerializer().Serialize(folders));
-            });
+            }, background);
             RememberFolders = options.RememberFolders;
             FixedFolders = folders;
             Language = canonical;
@@ -154,12 +160,17 @@ namespace Win10ExplorerKit.Configuration
         /// Updates only the selected language while retaining the current output format
         /// </summary>
         /// <param name="language">Supported locale code</param>
-        public void SetLanguage(string language)
+        public void SetLanguage(string language) => SetLanguageAsync(language, false).GetAwaiter().GetResult();
+
+        /// <summary>Persists language without blocking UI input on the cross-process configuration lock</summary>
+        /// <param name="language">Supported locale code</param><param name="background">Whether to persist on a pool thread</param>
+        /// <returns>Completion after language publication</returns>
+        internal async Task SetLanguageAsync(string language, bool background = true)
         {
             string selected = TranslationService.Resolve(language);
             if (!string.Equals(selected, language, StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("Unsupported language", "language");
-            _store.Update(doc => doc.Set("General", "Language", selected));
+            await UpdateAsync(doc => doc.Set("General", "Language", selected), background);
             Language = selected;
             TranslationService.UseLanguage(selected);
             Changed?.Invoke(this, EventArgs.Empty);
@@ -169,21 +180,41 @@ namespace Win10ExplorerKit.Configuration
         /// Updates only the output format while retaining the selected language
         /// </summary>
         /// <param name="quotePaths">Whether paths are wrapped in double quotes</param>
-        public void SetQuotePaths(bool quotePaths)
+        public void SetQuotePaths(bool quotePaths) => SetQuotePathsAsync(quotePaths, false).GetAwaiter().GetResult();
+
+        /// <summary>Persists path formatting before updating UI-bound preferences</summary>
+        /// <param name="quotePaths">Whether paths use quotes</param><param name="background">Whether to persist on a pool thread</param>
+        /// <returns>Completion after preference publication</returns>
+        internal async Task SetQuotePathsAsync(bool quotePaths, bool background = true)
         {
-            _store.Update(doc => doc.Set("Copy", "QuotePaths", quotePaths ? "true" : "false"));
+            await UpdateAsync(doc => doc.Set("Copy", "QuotePaths", quotePaths ? "true" : "false"), background);
             QuotePaths = quotePaths;
             Changed?.Invoke(this, EventArgs.Empty);
         }
 
         /// <summary>Persists the selected appearance without changing other preferences</summary>
         /// <param name="theme">System, Light or Dark</param>
-        public void SetTheme(string theme)
+        public void SetTheme(string theme) => SetThemeAsync(theme, false).GetAwaiter().GetResult();
+
+        /// <summary>Persists theme selection before publishing it on the caller's context</summary>
+        /// <param name="theme">System, Light or Dark</param><param name="background">Whether to persist on a pool thread</param>
+        /// <returns>Completion after theme publication</returns>
+        internal async Task SetThemeAsync(string theme, bool background = true)
         {
             if (theme != "System" && theme != "Light" && theme != "Dark") throw new ArgumentException("Invalid theme");
-            _store.Update(doc => doc.Set("General", "Theme", theme));
+            await UpdateAsync(doc => doc.Set("General", "Theme", theme), background);
             Theme = theme;
             Changed?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>Keeps synchronous maintenance callers while moving interactive disk and mutex waits off-thread</summary>
+        /// <param name="update">INI mutation</param><param name="background">Whether the caller owns a live UI</param>
+        /// <returns>Completion of the atomic store update</returns>
+        private Task UpdateAsync(Action<IniDocument> update, bool background)
+        {
+            if (background) return Task.Run(() => _store.Update(update));
+            _store.Update(update);
+            return Task.CompletedTask;
         }
     }
 }

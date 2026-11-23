@@ -8,6 +8,7 @@
   "error.setup": "安装或卸载失败：{0}",
   "error.language": "无法更新语言设置，请查看运行日志。",
   "error.hotkey": "Ctrl+Shift+C 注册失败，可能已被其他程序占用。请查看运行日志。",
+  "error.copyPaths": "未能复制路径，请在资源管理器恢复响应后重试。",
   "tray.settings": "设置…",
   "settings.title": "设置",
   "settings.language": "界面语言",

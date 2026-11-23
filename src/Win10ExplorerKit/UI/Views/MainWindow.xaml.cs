@@ -13,6 +13,7 @@ namespace Win10ExplorerKit.UI.Views
     {
         private readonly Dictionary<Type, object> _pages = new Dictionary<Type, object>();
         private readonly SnackbarService _notifications = new SnackbarService();
+        private bool _opening;
         internal bool AllowClose { get; set; }
         /// <summary>Builds a shared navigation shell with persistent page models</summary>
         /// <param name="hash">Background hashing state</param>
@@ -75,10 +76,16 @@ namespace Win10ExplorerKit.UI.Views
         /// <param name="page">hash, folders or settings</param>
         internal void Open(string page)
         {
-            Show();
-            if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
-            Navigation.Navigate(page == "settings" ? typeof(SettingsPage) : page == "folders" ? typeof(FoldersPage) : typeof(HashPage));
-            Activate();
+            if (_opening) return;
+            _opening = true;
+            try
+            {
+                if (!IsVisible) Show();
+                if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+                Navigation.Navigate(page == "settings" ? typeof(SettingsPage) : page == "folders" ? typeof(FoldersPage) : typeof(HashPage));
+                Activate();
+            }
+            finally { _opening = false; }
         }
         /// <summary>Shows concise feedback using the shared Fluent snackbar</summary>
         /// <param name="message">Localized feedback</param>

@@ -25,13 +25,25 @@ namespace Win10ExplorerKit.App.Activation
         // Bound a silent or stalled peer to fifteen seconds
         private const int TimeoutMilliseconds = 15000;
         private readonly CancellationTokenSource _stop = new CancellationTokenSource();
-        private readonly Func<ActivationRequest, Task<int>> _receive;
+        private readonly Func<ActivationRequest, CancellationToken, Task<int>> _receive;
         private NamedPipeServerStream _pipe;
         private readonly Task _listener;
-        private static string PipeName => "Win10ExplorerKit." + WindowsIdentity.GetCurrent().User.Value + "." + Process.GetCurrentProcess().SessionId;
+        private int _disposed;
+        private Task _cleanup = Task.CompletedTask;
+        // Stable endpoint identity for this process's Windows user and login session
+        private static readonly string PipeName = CreatePipeName();
+        internal Task Completion => _cleanup;
+        /// <summary>Reads the user and session once and closes their temporary native handles</summary>
+        /// <returns>User-scoped pipe name</returns>
+        private static string CreatePipeName()
+        {
+            using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
+            using (Process process = Process.GetCurrentProcess())
+                return "Win10ExplorerKit." + identity.User.Value + "." + process.SessionId;
+        }
         /// <summary>Starts a user-restricted activation listener</summary>
         /// <param name="receive">Dispatcher-side request handler</param>
-        internal ActivationChannel(Func<ActivationRequest, Task<int>> receive)
+        internal ActivationChannel(Func<ActivationRequest, CancellationToken, Task<int>> receive)
         { _receive = receive; _listener = Task.Run(ListenAsync); }
         /// <summary>Accepts framed requests and acknowledges only after dispatch succeeds</summary>
         /// <returns>Completion when shutdown closes the listener</returns>
@@ -43,11 +55,12 @@ namespace Win10ExplorerKit.App.Activation
                 {
                     var security = new PipeSecurity();
                     security.SetAccessRuleProtection(true, false);
-                    security.AddAccessRule(new PipeAccessRule(WindowsIdentity.GetCurrent().User, PipeAccessRights.FullControl, AccessControlType.Allow));
+                    using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
+                        security.AddAccessRule(new PipeAccessRule(identity.User, PipeAccessRights.FullControl, AccessControlType.Allow));
                     using (var pipe = new NamedPipeServerStream(PipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte,
                         PipeOptions.Asynchronous, 65536, 65536, security))
                     {
-                        _pipe = pipe;
+                        Interlocked.Exchange(ref _pipe, pipe);
                         await pipe.WaitForConnectionAsync(_stop.Token).ConfigureAwait(false);
                         using (var timeout = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token))
                         {
@@ -60,7 +73,13 @@ namespace Win10ExplorerKit.App.Activation
                                 byte[] payload = await ReadAsync(pipe, length, timeout.Token).ConfigureAwait(false);
                                 var request = new JavaScriptSerializer().Deserialize<ActivationRequest>(Encoding.UTF8.GetString(payload));
                                 Validate(request);
-                                int result = await _receive(request).ConfigureAwait(false);
+                                Task<int> received = _receive(request, timeout.Token);
+                                if (await Task.WhenAny(received, Task.Delay(Timeout.Infinite, timeout.Token)).ConfigureAwait(false) != received)
+                                {
+                                    _ = ObserveExpiredAsync(received);
+                                    throw new TimeoutException("Activation dispatch expired");
+                                }
+                                int result = await received.ConfigureAwait(false);
                                 byte[] reply = BitConverter.GetBytes(result);
                                 await pipe.WriteAsync(reply, 0, reply.Length, timeout.Token).ConfigureAwait(false);
                             }
@@ -76,8 +95,16 @@ namespace Win10ExplorerKit.App.Activation
                         await Task.Delay(250).ConfigureAwait(false);
                     }
                 }
-                finally { _pipe = null; }
+                finally { Interlocked.Exchange(ref _pipe, null); }
             }
+        }
+        /// <summary>Observes dispatch failures after a disconnected client has stopped waiting</summary>
+        /// <param name="received">Outstanding dispatch</param><returns>Completion after dispatch finishes</returns>
+        private static async Task ObserveExpiredAsync(Task received)
+        {
+            try { await received.ConfigureAwait(false); }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { AppLogger.Write("Activation dispatch expired", ex); }
         }
         /// <summary>Rejects unsupported commands and oversized selections before dispatch</summary>
         /// <param name="request">Deserialized request</param>
@@ -140,7 +167,20 @@ namespace Win10ExplorerKit.App.Activation
             return bytes;
         }
         /// <summary>Stops accepting new selections and releases pending pipe operations</summary>
-        public void Dispose() { _stop.Cancel(); _pipe?.Dispose(); }
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+            _stop.Cancel();
+            Interlocked.Exchange(ref _pipe, null)?.Dispose();
+            _cleanup = CompleteStopAsync();
+        }
+        /// <summary>Releases cancellation resources only after the listener has stopped using them</summary>
+        /// <returns>Completion after listener teardown</returns>
+        private async Task CompleteStopAsync()
+        {
+            try { await _listener.ConfigureAwait(false); }
+            finally { _stop.Dispose(); }
+        }
 
         /// <summary>Obtains the connected local server identity</summary><param name="pipe">Connected pipe</param><param name="processId">Server process</param><returns>Whether the process was found</returns>
         [DllImport("kernel32.dll")]

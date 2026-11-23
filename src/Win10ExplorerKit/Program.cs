@@ -11,6 +11,14 @@ namespace Win10ExplorerKit
 {
     internal static class Program
     {
+        // Maximum final log flush in milliseconds, kept below the installer shutdown deadline
+        private const int LogFlushMilliseconds = 500;
+        /// <summary>Flushes diagnostics before releasing host ownership without waiting indefinitely for storage</summary>
+        private static void FlushDiagnostics()
+        {
+            try { AppLogger.FlushAsync().Wait(LogFlushMilliseconds); }
+            catch (AggregateException) { }
+        }
         /// <summary>Stops both tray and on-demand hash processes before maintenance</summary>
         /// <returns>Whether all owned processes released their files</returns>
         private static bool StopHosts()
@@ -28,6 +36,7 @@ namespace Win10ExplorerKit
         [STAThread]
         internal static int Main(string[] args)
         {
+            bool diagnosticsFlushed = false;
             try
             {
                 if (Array.IndexOf(args, "--shutdown") >= 0) return StopHosts() ? 0 : 2;
@@ -104,7 +113,11 @@ namespace Win10ExplorerKit
                         SettingsService.FilePath, AppPaths.ExecutablePath, ShellIntegration.Install, HashShellRegistration.Install);
                     var app = new DesktopApplication(settings, instance, Array.IndexOf(args, "--hotkey") >= 0,
                         Array.IndexOf(args, "--settings") >= 0 ? "settings" : "hash", Array.IndexOf(args, "--plain") >= 0);
-                    return app.Run();
+                    int exitCode = app.Run();
+                    // Keep the installer waiting on host ownership until the final normal flush finishes
+                    FlushDiagnostics();
+                    diagnosticsFlushed = true;
+                    return exitCode;
                 }
             }
             catch (Exception ex)
@@ -113,6 +126,10 @@ namespace Win10ExplorerKit
                 if (Array.IndexOf(args, "--install") >= 0 || args.Length == 0)
                     DialogService.ShowBlocking(TranslationService.T("error.operation"));
                 return 2;
+            }
+            finally
+            {
+                if (!diagnosticsFlushed) FlushDiagnostics();
             }
         }
     }
