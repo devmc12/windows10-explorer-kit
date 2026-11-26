@@ -104,6 +104,7 @@ Root: HKCU; Subkey: "Software\Classes\Drive\shell\Win10ExplorerKit"; ValueType: 
 Root: HKCU; Subkey: "Software\Classes\Drive\shell\Win10ExplorerKit"; ValueType: string; ValueName: "MultiSelectModel"; ValueData: "Player"; Tasks: shell
 Root: HKCU; Subkey: "Software\Classes\Drive\shell\Win10ExplorerKit\command"; ValueType: string; ValueData: """{app}\Win10ExplorerKit.exe"" --copy %* ""%1"""; Tasks: shell
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Win10ExplorerKitHotkey"; ValueData: """{app}\Win10ExplorerKit.exe"" --hotkey"; Tasks: startup; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "Win10ExplorerKitHotkey"; Tasks: not startup; Flags: deletevalue uninsdeletevalue
 
 [Run]
 Filename: "{app}\Win10ExplorerKit.exe"; Parameters: "--initialize-language {code:ApplicationLanguage}"; Flags: runhidden
@@ -115,6 +116,44 @@ Filename: "{app}\Win10ExplorerKit.exe"; Description: "{cm:Launch}"; Flags: nowai
 Filename: "{app}\Win10ExplorerKit.exe"; Parameters: "--clean-data"; Flags: runhidden skipifdoesntexist; RunOnceId: CleanOwnedData
 
 [Code]
+var
+  StartupTaskInitialized: Boolean;
+
+{ Detect explicit task selections so command-line installation choices take precedence }
+function HasStartupTaskOverride(): Boolean;
+var
+  Index: Integer;
+  Argument, Tasks: String;
+begin
+  Result := True;
+  for Index := 1 to ParamCount do begin
+    Argument := Lowercase(ParamStr(Index));
+    if (Pos('/tasks=', Argument) = 1) or (Pos('/loadinf=', Argument) = 1) then Exit;
+    if Pos('/mergetasks=', Argument) = 1 then begin
+      Tasks := ',' + RemoveQuotes(Copy(Argument, 13, Length(Argument))) + ',';
+      StringChangeEx(Tasks, ' ', '', True);
+      if (Pos(',startup,', Tasks) > 0) or (Pos(',!startup,', Tasks) > 0) or
+        (Pos(',*startup,', Tasks) > 0) then Exit;
+    end;
+  end;
+  Result := False;
+end;
+
+{ Initialize the populated task page once, including during silent upgrades }
+procedure CurPageChanged(CurPageID: Integer);
+var
+  Command: String;
+begin
+  if (CurPageID <> wpSelectTasks) or StartupTaskInitialized then Exit;
+  StartupTaskInitialized := True;
+  if (WizardForm.PrevAppDir = '') or HasStartupTaskOverride() then Exit;
+  if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run',
+    'Win10ExplorerKitHotkey', Command) and (Trim(Command) <> '') then
+    WizardSelectTasks('startup')
+  else
+    WizardSelectTasks('!startup');
+end;
+
 { Map the installer language to the application's locale before launching the tray }
 function ApplicationLanguage(Param: String): String;
 begin
