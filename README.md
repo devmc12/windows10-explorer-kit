@@ -4,12 +4,13 @@
 
 <p align="center"><strong>English | <a href="README.zh.md">简体中文</a></strong></p>
 
-Path copying, folder recovery and file hashing for Windows 10 File Explorer.
+Path copying, folder recovery, file hashing and permission management for Windows 10 File Explorer.
 
 - Copy paths from the context menu or with **Ctrl + Shift + C**, with multi-selection and optional double quotes
 - Automatically remember open folders and restore them from the tray menu
 - Open a custom list of fixed folders in one action
 - Calculate MD5, SHA-1, SHA-256 or SHA-512 from the context menu or by drag-and-drop
+- Quickly deny or allow file and folder permissions from the context menu or by drag-and-drop
 - Switch between English and Simplified Chinese and configure login startup
 - Choose system, light or dark appearance
 
@@ -61,7 +62,7 @@ windows10-explorer-kit/                     # Repository root
 │   ├── App/                                # Lifetime, single instance and cleanup
 │   ├── Configuration/                      # Typed settings and INI persistence
 │   ├── Diagnostics/                        # Application logging
-│   ├── Features/                           # Path copying, folder recovery and hashing
+│   ├── Features/                           # Path copying, folder recovery, hashing and permissions
 │   ├── Windows/                            # Explorer, startup, hotkeys and native APIs
 │   ├── UI/                                 # WPF views, view models and tray
 │   ├── Localization/                       # Translation service and JSON locales

@@ -39,6 +39,8 @@ namespace Win10ExplorerKit
             bool diagnosticsFlushed = false;
             try
             {
+                if (args.Length == 3 && args[0] == "--permission-worker" && int.TryParse(args[1], out int parentId))
+                    return Features.Permissions.PermissionElevation.RunWorker(parentId, args[2]);
                 if (Array.IndexOf(args, "--shutdown") >= 0) return StopHosts() ? 0 : 2;
                 if (Array.IndexOf(args, "--uninstall") >= 0)
                 {
@@ -51,6 +53,7 @@ namespace Win10ExplorerKit
                 {
                     if (!StopHosts()) return 2;
                     HashShellRegistration.Uninstall();
+                    PermissionShellRegistration.Uninstall();
                     DataCleanup.Clean(AppPaths.DataDirectory);
                     return 0;
                 }
@@ -62,6 +65,11 @@ namespace Win10ExplorerKit
                 if (args.Length == 1 && args[0] == "--register-hash")
                 {
                     HashShellRegistration.Install();
+                    return 0;
+                }
+                if (args.Length == 1 && args[0] == "--register-permissions")
+                {
+                    PermissionShellRegistration.Install();
                     return 0;
                 }
                 if (hashServer)
@@ -110,7 +118,8 @@ namespace Win10ExplorerKit
                         return 0;
                     }
                     PortableSetup.EnsureRegistered(AppDomain.CurrentDomain.BaseDirectory,
-                        SettingsService.FilePath, AppPaths.ExecutablePath, ShellIntegration.Install, HashShellRegistration.Install);
+                        SettingsService.FilePath, AppPaths.ExecutablePath, ShellIntegration.Install,
+                        () => { HashShellRegistration.Install(); PermissionShellRegistration.Install(); });
                     var app = new DesktopApplication(settings, instance, Array.IndexOf(args, "--hotkey") >= 0,
                         Array.IndexOf(args, "--settings") >= 0 ? "settings" : "hash", Array.IndexOf(args, "--plain") >= 0);
                     int exitCode = app.Run();

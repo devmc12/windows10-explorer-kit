@@ -10,10 +10,12 @@ namespace Win10ExplorerKit.Windows.Explorer
         private readonly HashApplicationContext _host;
         private IShellItemArray _selection;
         private bool _hidden;
+        private readonly string _operation;
 
         /// <summary>Creates a lightweight shell invocation owned by the local server</summary>
         /// <param name="host">Shared hash window host</param>
-        internal HashShellCommand(HashApplicationContext host) { _host = host; }
+        /// <param name="operation">Optional fixed permission action selected by the COM class</param>
+        internal HashShellCommand(HashApplicationContext host, string operation = null) { _host = host; _operation = operation; }
 
         /// <summary>Stores the selection until Execute transfers it to the UI queue</summary>
         /// <param name="selection">Shell-owned selection array</param>
@@ -35,7 +37,7 @@ namespace Win10ExplorerKit.Windows.Explorer
         public void Execute()
         {
             if (_hidden || _selection == null) return;
-            _host.Accept(_selection);
+            _host.Accept(_selection, _operation);
             _selection = null;
         }
 
@@ -57,9 +59,11 @@ namespace Win10ExplorerKit.Windows.Explorer
     public sealed class HashClassFactory : IHashClassFactory
     {
         private readonly HashApplicationContext _host;
+        private readonly string _operation;
 
         /// <summary>Creates a factory for one hash-window host</summary><param name="host">UI host</param>
-        internal HashClassFactory(HashApplicationContext host) { _host = host; }
+        /// <param name="operation">Optional permission action bound to this factory</param>
+        internal HashClassFactory(HashApplicationContext host, string operation = null) { _host = host; _operation = operation; }
 
         /// <summary>Creates a command through the requested COM interface</summary>
         /// <param name="outer">Unsupported aggregation owner</param><param name="iid">Requested interface</param><param name="instance">AddRef-owned result</param><returns>COM status</returns>
@@ -68,7 +72,7 @@ namespace Win10ExplorerKit.Windows.Explorer
             instance = IntPtr.Zero;
             // CLASS_E_NOAGGREGATION rejects unsupported COM aggregation
             if (outer != IntPtr.Zero) return unchecked((int)0x80040110);
-            IntPtr unknown = Marshal.GetIUnknownForObject(new HashShellCommand(_host));
+            IntPtr unknown = Marshal.GetIUnknownForObject(new HashShellCommand(_host, _operation));
             try { return Marshal.QueryInterface(unknown, ref iid, out instance); }
             finally { Marshal.Release(unknown); }
         }

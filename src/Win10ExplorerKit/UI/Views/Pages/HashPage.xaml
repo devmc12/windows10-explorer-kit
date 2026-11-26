@@ -6,25 +6,12 @@
    <Setter Property="ToolTipService.IsEnabled" Value="{Binding CanCopy}"/>
    <EventSetter Event="PreviewMouseLeftButtonUp" Handler="CopyValue"/>
   </Style>
-  <Style x:Key="HashRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource DefaultDataGridRowStyle}">
-   <Setter Property="Template"><Setter.Value>
-    <ControlTemplate TargetType="DataGridRow">
-     <Border x:Name="RowSurface" Background="{TemplateBinding Background}" CornerRadius="4" SnapsToDevicePixels="True">
-      <DataGridCellsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" SnapsToDevicePixels="True"/>
-     </Border>
-     <ControlTemplate.Triggers>
-      <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource ListViewItemBackgroundPointerOver}"/></Trigger>
-      <Trigger Property="IsSelected" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource KitAccentSoftBrush}"/></Trigger>
-     </ControlTemplate.Triggers>
-    </ControlTemplate>
-   </Setter.Value></Setter>
-  </Style>
  </Page.Resources>
  <Border Background="{DynamicResource KitSurfaceBrush}" BorderBrush="{DynamicResource KitBorderBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,12,12">
  <Grid Margin="24,16,24,20">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <TextBlock Text="{Binding [hash.title], Source={x:Static s:LocalizedText.Instance}}" Style="{StaticResource PageTitle}"/>
-  <Grid Grid.Row="1" Margin="0,0,0,24">
+  <Grid Grid.Row="1" Margin="{StaticResource SectionBottomMargin}">
    <Grid.ColumnDefinitions><ColumnDefinition Width="156"/><ColumnDefinition Width="104"/><ColumnDefinition Width="112"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <TextBlock Text="{Binding [hash.algorithm], Source={x:Static s:LocalizedText.Instance}}" Margin="0,0,0,6"/>
@@ -38,7 +25,7 @@
    <ui:Button Cursor="Hand" x:Name="AddFilesButton" Grid.Row="1" Grid.Column="3" VerticalAlignment="Center" Content="{Binding [hash.addFiles], Source={x:Static s:LocalizedText.Instance}}" Click="AddFiles" Appearance="Primary"/>
   </Grid>
   <Grid Grid.Row="2">
-  <DataGrid x:Name="Results" ItemsSource="{Binding Rows}" Background="{DynamicResource KitSurfaceBrush}" BorderBrush="{DynamicResource KitBorderBrush}" BorderThickness="1" ColumnHeaderStyle="{StaticResource HashHeaderStyle}" RowStyle="{StaticResource HashRowStyle}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="False" CanUserResizeRows="False" CanUserResizeColumns="True" HeadersVisibility="Column" GridLinesVisibility="None" RowHeight="34" SelectionMode="Single" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" PreviewKeyDown="CopyKey">
+  <DataGrid x:Name="Results" Style="{StaticResource KitTableStyle}" ItemsSource="{Binding Rows}" SelectionMode="Single" PreviewKeyDown="CopyKey">
    <DataGrid.Columns>
     <DataGridTemplateColumn Width="200" MinWidth="120">
      <DataGridTemplateColumn.Header><TextBlock Text="{Binding [hash.file], Source={x:Static s:LocalizedText.Instance}}"/></DataGridTemplateColumn.Header>
@@ -60,11 +47,7 @@
     <TextBlock Text="{Binding [hash.emptyHint], Source={x:Static s:LocalizedText.Instance}}" TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
    </StackPanel>
   </Grid>
-  <Grid Grid.Row="3" Margin="0,16,0,0">
-   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-   <!-- Progress is computed by the model and must never receive control values -->
-   <ProgressBar Height="3" Value="{Binding Progress, Mode=OneWay}" Maximum="100" Foreground="{DynamicResource KitAccentTextBrush}" Background="{DynamicResource KitAccentSoftBrush}" Margin="0,0,0,12"/>
-   <DockPanel Grid.Row="1" LastChildFill="True">
+   <DockPanel Grid.Row="3" Margin="{StaticResource SectionTopMargin}" LastChildFill="True">
     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
      <ui:Button Cursor="Hand" Content="{Binding CopyAllLabel}" IsEnabled="{Binding CanCopyAll}" Click="CopyAll" Appearance="Primary" Margin="8,0,0,0"/>
      <ui:Button Cursor="Hand" Content="{Binding [hash.cancel], Source={x:Static s:LocalizedText.Instance}}" IsEnabled="{Binding IsBusy}" Click="Cancel" Margin="8,0,0,0"/>
@@ -72,7 +55,6 @@
     </StackPanel>
     <TextBlock AutomationProperties.AutomationId="HashSummary" Text="{Binding Summary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
    </DockPanel>
-  </Grid>
  </Grid>
  </Border>
 </Page>

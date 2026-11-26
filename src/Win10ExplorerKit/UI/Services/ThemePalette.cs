@@ -1,3 +1,4 @@
+// Defines semantic colors shared by application pages and dialogs
 using System.Windows;
 using System.Windows.Media;
 using Wpf.Ui.Appearance;
@@ -14,6 +15,7 @@ namespace Win10ExplorerKit.UI.Services
             Set("KitSurfaceBrush", dark ? "#182234" : "#FFFFFF");
             Set("KitHeaderBrush", dark ? "#22324B" : "#E7EFFC");
             Set("KitBorderBrush", dark ? "#34435B" : "#CEDCF0");
+            Set("KitTableSelectionBrush", dark ? "#203047" : "#EFF5FE");
             Set("KitAccentSoftBrush", dark ? "#253F65" : "#DBEAFE");
             Set("KitAccentTextBrush", dark ? "#93C5FD" : "#1D4ED8");
             Set("KitToastBrush", dark ? "#193451" : "#E8F1FE");

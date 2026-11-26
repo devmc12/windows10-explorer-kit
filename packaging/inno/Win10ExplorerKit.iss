@@ -54,6 +54,8 @@ en.ShellTask=Add "Copy path" to the Explorer context menu
 zhcn.ShellTask=将“复制路径”添加到资源管理器右键菜单
 en.HashTask=Add "Calculate file hash" to the Explorer context menu
 zhcn.HashTask=将“计算文件哈希”添加到资源管理器右键菜单
+en.PermissionTask=Add "File permissions" to the Explorer context menu
+zhcn.PermissionTask=将“文件权限”添加到资源管理器右键菜单
 en.StartupTask=Start when I sign in
 zhcn.StartupTask=登录时自动启动
 en.CopyLabel=Copy path (Ctrl+Shift+C)
@@ -68,6 +70,7 @@ zhcn.StopFailed=请先退出 Win10 Explorer Kit 后再继续。
 [Tasks]
 Name: "shell"; Description: "{cm:ShellTask}"
 Name: "hash"; Description: "{cm:HashTask}"
+Name: "permissions"; Description: "{cm:PermissionTask}"
 Name: "startup"; Description: "{cm:StartupTask}"
 
 [Files]
@@ -105,6 +108,7 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 [Run]
 Filename: "{app}\Win10ExplorerKit.exe"; Parameters: "--initialize-language {code:ApplicationLanguage}"; Flags: runhidden
 Filename: "{app}\Win10ExplorerKit.exe"; Parameters: "--register-hash"; Tasks: hash; Flags: runhidden
+Filename: "{app}\Win10ExplorerKit.exe"; Parameters: "--register-permissions"; Tasks: permissions; Flags: runhidden
 Filename: "{app}\Win10ExplorerKit.exe"; Description: "{cm:Launch}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]

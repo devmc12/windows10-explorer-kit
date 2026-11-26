@@ -1,0 +1,45 @@
+<!-- Presents permission targets, operation results and batch actions -->
+<Page x:Class="Win10ExplorerKit.UI.Views.Pages.PermissionsPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml" xmlns:s="clr-namespace:Win10ExplorerKit.UI.Services" Background="Transparent" ScrollViewer.CanContentScroll="False" AllowDrop="True" PreviewDragEnter="DragOverFiles" PreviewDragOver="DragOverFiles" PreviewDrop="DropFiles">
+ <Border Background="{DynamicResource KitSurfaceBrush}" BorderBrush="{DynamicResource KitBorderBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,12,12">
+  <Grid Margin="24,16,24,20">
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <TextBlock Text="{Binding [permissions.title], Source={x:Static s:LocalizedText.Instance}}" Style="{StaticResource PageTitle}"/>
+   <WrapPanel Grid.Row="1" Margin="{StaticResource SectionBottomMargin}">
+    <ui:Button Cursor="Hand" Content="{Binding [permissions.addFiles], Source={x:Static s:LocalizedText.Instance}}" Appearance="Primary" Click="AddFiles" Margin="0,0,8,0"/>
+    <ui:Button Cursor="Hand" Content="{Binding [permissions.addFolders], Source={x:Static s:LocalizedText.Instance}}" Click="AddFolders"/>
+   </WrapPanel>
+   <Grid Grid.Row="2">
+    <DataGrid x:Name="Targets" Style="{StaticResource KitTableStyle}" ItemsSource="{Binding Rows}" AllowDrop="True" SelectionMode="Extended" SelectionUnit="FullRow" SelectionChanged="SelectionChanged" CanUserSortColumns="True" MinColumnWidth="70">
+     <DataGrid.Resources>
+      <Style x:Key="CellText" TargetType="TextBlock"><Setter Property="TextTrimming" Value="CharacterEllipsis"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Margin" Value="8,0"/><Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/></Style>
+     </DataGrid.Resources>
+     <DataGrid.Columns>
+      <DataGridTextColumn Header="{Binding [permissions.name], Source={x:Static s:LocalizedText.Instance}}" Binding="{Binding Name}" ElementStyle="{StaticResource CellText}" Width="1*"/>
+      <DataGridTextColumn Header="{Binding [permissions.path], Source={x:Static s:LocalizedText.Instance}}" Binding="{Binding Path}" ElementStyle="{StaticResource CellText}" Width="2*"/>
+      <DataGridTextColumn Header="{Binding [permissions.result], Source={x:Static s:LocalizedText.Instance}}" Binding="{Binding Result}" ElementStyle="{StaticResource CellText}" Width="1.4*"/>
+     </DataGrid.Columns>
+    </DataGrid>
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" IsHitTestVisible="False">
+     <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Rows.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+     <ui:SymbolIcon Symbol="Shield24" Foreground="{DynamicResource KitAccentTextBrush}" FontSize="32" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+     <TextBlock Text="{Binding [permissions.empty], Source={x:Static s:LocalizedText.Instance}}" TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+    </StackPanel>
+   </Grid>
+   <StackPanel Grid.Row="3" Margin="{StaticResource SectionTopMargin}">
+    <DockPanel Margin="0,0,0,8"><TextBlock DockPanel.Dock="Right" Text="{Binding Progress}" VerticalAlignment="Center"/><TextBlock Text="{Binding TargetLabel}" VerticalAlignment="Center"/></DockPanel>
+    <s:SeparatedActionsPanel>
+    <StackPanel Orientation="Horizontal">
+     <ui:Button Cursor="Hand" Content="{Binding [permissions.deny], Source={x:Static s:LocalizedText.Instance}}" IsEnabled="{Binding CanApply}" Click="DenyAll" Appearance="Primary" Margin="0,0,8,0"/>
+     <ui:Button Cursor="Hand" Content="{Binding [permissions.allow], Source={x:Static s:LocalizedText.Instance}}" ToolTip="{Binding [permissions.allowHint], Source={x:Static s:LocalizedText.Instance}}" IsEnabled="{Binding CanApply}" Click="AllowAll" Margin="0,0,8,0"/>
+     <ui:Button Cursor="Hand" Content="{Binding [permissions.custom], Source={x:Static s:LocalizedText.Instance}}" IsEnabled="{Binding CanApply}" Click="Custom"/>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal">
+     <ui:Button Cursor="Hand" Content="{Binding [permissions.remove], Source={x:Static s:LocalizedText.Instance}}" IsEnabled="{Binding CanEdit}" Click="Remove" Margin="0,0,8,0"/>
+     <ui:Button Cursor="Hand" Content="{Binding [hash.clear], Source={x:Static s:LocalizedText.Instance}}" IsEnabled="{Binding CanEdit}" Click="Clear" Margin="0,0,8,0"/>
+     <ui:Button Cursor="Hand" Content="{Binding [hash.cancel], Source={x:Static s:LocalizedText.Instance}}" IsEnabled="{Binding IsBusy}" Click="Cancel"/>
+    </StackPanel>
+    </s:SeparatedActionsPanel>
+   </StackPanel>
+  </Grid>
+ </Border>
+</Page>

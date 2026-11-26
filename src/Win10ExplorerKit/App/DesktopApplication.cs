@@ -9,6 +9,7 @@ using Win10ExplorerKit.App.Activation;
 using Win10ExplorerKit.UI.Services;
 using Win10ExplorerKit.UI.ViewModels;
 using Win10ExplorerKit.UI.Views;
+using Win10ExplorerKit.Features.Permissions;
 namespace Win10ExplorerKit.App
 {
     public partial class DesktopApplication : Application
@@ -23,6 +24,8 @@ namespace Win10ExplorerKit.App
         private readonly DispatcherTimer _shutdown = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
         private FolderRecoveryService _folders;
         private HashViewModel _hash;
+        private PermissionViewModel _permissions;
+        private PermissionInbox _permissionInbox;
         private SettingsViewModel _preferences;
         private TrayController _tray;
         private ExplorerHotkeyService _hotkey;
@@ -52,6 +55,16 @@ namespace Win10ExplorerKit.App
             _displayLanguage = _settings.Language; _displayTheme = _settings.Theme;
             _folders = new FolderRecoveryService(_settings);
             _hash = new HashViewModel(_settings, Notify);
+            _permissions = new PermissionViewModel(Notify);
+            _permissionInbox = new PermissionInbox(request =>
+            {
+                if (request.Operation == "manage")
+                {
+                    if (!_permissions.AddPaths(request.Paths)) return false;
+                    Open("permissions"); return true;
+                }
+                return _permissions.Enqueue(request);
+            });
             _preferences = new SettingsViewModel(_settings, _folders, Notify);
             _tray = new TrayController(_settings, _preferences, Open, async () => await StopAsync());
             _copy = new ExplorerCopyService(Notify);
@@ -60,7 +73,7 @@ namespace Win10ExplorerKit.App
             _channel = new ActivationChannel((request, token) => Dispatcher.InvokeAsync(() => Accept(request), DispatcherPriority.Background, token).Task);
             _settings.Changed += SettingsChanged;
             SystemEvents.UserPreferenceChanged += SystemChanged;
-            _shutdown.Tick += async (sender, tick) => { if (_instance.StopRequested()) await StopAsync(); };
+            _shutdown.Tick += async (sender, tick) => { _permissionInbox.Sweep(); if (_instance.StopRequested()) await StopAsync(); };
             _shutdown.Start();
             RefreshShellLabels();
             if (!_hidden) Open(_initialPage);
@@ -69,6 +82,7 @@ namespace Win10ExplorerKit.App
         private int Accept(ActivationRequest request)
         {
             if (_stopping) return -1;
+            if (request.Action.EndsWith("-permissions", StringComparison.Ordinal)) return _permissionInbox.Receive(request);
             if (request.Action == "append-hash")
             {
                 if (request.Epoch != _hash.InputEpoch) return -1;
@@ -84,7 +98,7 @@ namespace Win10ExplorerKit.App
             _openingWindow = true;
             try
             {
-                if (_window == null) { _window = new UI.Views.MainWindow(_hash, _preferences); MainWindow = _window; }
+                if (_window == null) { _window = new UI.Views.MainWindow(_hash, _preferences, _permissions); MainWindow = _window; }
                 _window.Open(page);
             }
             finally { _openingWindow = false; }
@@ -102,7 +116,7 @@ namespace Win10ExplorerKit.App
             if (_displayLanguage != _settings.Language)
             {
                 _displayLanguage = _settings.Language;
-                LocalizedText.Instance.Refresh(); _hash.RefreshLanguage(); RefreshShellLabels();
+                LocalizedText.Instance.Refresh(); _hash.RefreshLanguage(); _permissions.RefreshLanguage(); RefreshShellLabels();
             }
             if (_displayTheme != _settings.Theme) { _displayTheme = _settings.Theme; ApplyTheme(); }
         }
@@ -142,12 +156,16 @@ namespace Win10ExplorerKit.App
         private async Task StopAsync()
         {
             if (_stopping) return; _stopping = true;
+            _permissions.Stop();
             _hotkey?.Dispose(); _tray?.Dispose();
             _copy?.Dispose();
             _folders?.Dispose();
             _shutdown.Stop(); _channel?.Dispose();
             try
             {
+                // Permission writes must finish before releasing installer ownership, even if a native call stalls
+                // The installer times out and reports busy instead of replacing files during an ACL write
+                await _permissions.Completion;
                 Task cleanup = Task.WhenAll(_preferences.FlushAsync(), _hash.CloseAsync(), _folders.Completion,
                     _copy.Completion, _channel.Completion, _labelRefresh);
                 if (await Task.WhenAny(cleanup, Task.Delay(ShutdownTimeoutMilliseconds)) == cleanup) await cleanup;

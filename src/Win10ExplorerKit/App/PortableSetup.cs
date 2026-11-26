@@ -5,8 +5,8 @@ namespace Win10ExplorerKit.App
 {
     internal static class PortableSetup
     {
-        // Revision 2 replaces AnyCPU COM activation with native host executables
-        private const string HashRegistrationVersion = "2";
+        // Revision 3 adds permission commands to the shared native COM host
+        private const string HashRegistrationVersion = "3";
         /// <summary>
         /// Registers a portable location once, preserving later startup choices on normal launches
         /// </summary>

@@ -72,7 +72,8 @@
      </ControlTemplate>
     </Setter.Value></Setter>
    </Style>
-   <Style x:Key="HashHeaderStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DefaultDataGridColumnHeaderStyle}">
+   <!-- Adapts the WPF UI column-header template with faster sorting transitions -->
+   <Style x:Key="KitTableHeaderStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DefaultDataGridColumnHeaderStyle}">
     <Setter Property="Background" Value="{DynamicResource KitHeaderBrush}"/>
     <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource KitBorderBrush}"/>
@@ -80,8 +81,141 @@
     <Setter Property="Padding" Value="12,10"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type DataGridColumnHeader}">
+                    <Grid>
+                        <Border
+                            x:Name="HeaderBorder"
+                            Padding="{TemplateBinding Padding}"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{DynamicResource ControlCornerRadius}">
+                            <Grid
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                IsSharedSizeScope="True">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition x:Name="FirstColumn" Width="*" />
+                                    <ColumnDefinition x:Name="SecondColumn" Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter
+                                    Grid.Column="0"
+                                    x:Name="ContentPresenter"
+                                    SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                                <ui:SymbolIcon
+                                    Grid.Column="1"
+                                    x:Name="SortIcon"
+                                    Margin="4,0,0,0"
+                                    RenderTransformOrigin="0.5, 0.5"
+                                    Symbol="ArrowSortUp24">
+                                    <ui:SymbolIcon.RenderTransform>
+                                        <RotateTransform Angle="0" />
+                                    </ui:SymbolIcon.RenderTransform>
+                                </ui:SymbolIcon>
+                            </Grid>
+                        </Border>
+
+                        <Thumb
+                            x:Name="PART_LeftHeaderGripper"
+                            HorizontalAlignment="Left"
+                            Style="{StaticResource ColumnHeaderGripperStyle}" />
+                        <Thumb
+                            x:Name="PART_RightHeaderGripper"
+                            HorizontalAlignment="Right"
+                            Style="{StaticResource ColumnHeaderGripperStyle}" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource ListViewItemBackgroundPointerOver}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+                        </Trigger>
+                        <Trigger Property="SortDirection" Value="{x:Null}">
+                            <Setter TargetName="SortIcon" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="SortDirection" Value="Descending">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="SortIcon"
+                                            Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(RotateTransform.Angle)"
+                                            To="180"
+                                            Duration="00:00:00.120" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="SortIcon"
+                                            Storyboard.TargetProperty="(ui:SymbolIcon.RenderTransform).(RotateTransform.Angle)"
+                                            To="0"
+                                            Duration="00:00:00.120" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        <Trigger Property="HorizontalContentAlignment" Value="Right">
+                            <Setter TargetName="FirstColumn" Property="Width" Value="Auto" />
+                            <Setter TargetName="SecondColumn" Property="Width" Value="*" />
+                            <Setter TargetName="ContentPresenter" Property="Grid.Column" Value="1" />
+                            <Setter TargetName="SortIcon" Property="Grid.Column" Value="0" />
+                            <Setter TargetName="SortIcon" Property="Margin" Value="0,0,4,0" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
    </Style>
-   <Style x:Key="PageTitle" TargetType="TextBlock"><Setter Property="FontSize" Value="24"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Margin" Value="0,0,0,20"/></Style>
+  <Style x:Key="KitTableRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource DefaultDataGridRowStyle}">
+   <Setter Property="Template"><Setter.Value>
+    <ControlTemplate TargetType="DataGridRow">
+     <Border x:Name="RowSurface" Background="{TemplateBinding Background}" CornerRadius="4" SnapsToDevicePixels="True">
+      <DataGridCellsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" SnapsToDevicePixels="True"/>
+     </Border>
+     <ControlTemplate.Triggers>
+      <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource ListViewItemBackgroundPointerOver}"/></Trigger>
+      <Trigger Property="IsSelected" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource KitTableSelectionBrush}"/></Trigger>
+     </ControlTemplate.Triggers>
+    </ControlTemplate>
+   </Setter.Value></Setter>
+  </Style>
+   <Style x:Key="KitTableStyle" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+    <Setter Property="Background" Value="{DynamicResource KitSurfaceBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource KitBorderBrush}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="ColumnHeaderStyle" Value="{StaticResource KitTableHeaderStyle}"/>
+    <Setter Property="RowStyle" Value="{StaticResource KitTableRowStyle}"/>
+    <Setter Property="AutoGenerateColumns" Value="False"/>
+    <Setter Property="IsReadOnly" Value="True"/>
+    <Setter Property="CanUserAddRows" Value="False"/>
+    <Setter Property="CanUserDeleteRows" Value="False"/>
+    <Setter Property="CanUserSortColumns" Value="False"/>
+    <Setter Property="CanUserResizeRows" Value="False"/>
+    <Setter Property="CanUserResizeColumns" Value="True"/>
+    <Setter Property="HeadersVisibility" Value="Column"/>
+    <Setter Property="RowHeaderWidth" Value="0"/>
+    <Setter Property="GridLinesVisibility" Value="None"/>
+    <Setter Property="RowHeight" Value="34"/>
+    <Setter Property="EnableRowVirtualization" Value="True"/>
+    <Setter Property="EnableColumnVirtualization" Value="True"/>
+    <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
+    <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
+    <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+   </Style>
+   <Thickness x:Key="SectionBottomMargin">0,0,0,16</Thickness>
+   <Thickness x:Key="SectionTopMargin">0,16,0,0</Thickness>
+   <Style x:Key="PageTitle" TargetType="TextBlock"><Setter Property="FontSize" Value="24"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Margin" Value="{StaticResource SectionBottomMargin}"/></Style>
    <Style x:Key="SettingRow" TargetType="Grid"><Setter Property="MinHeight" Value="60"/><Setter Property="Margin" Value="0,0,0,8"/></Style>
   </ResourceDictionary>
  </Application.Resources>

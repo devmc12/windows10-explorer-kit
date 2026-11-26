@@ -2,6 +2,18 @@
 
 All notable changes to Win10 Explorer Kit are documented here.
 
+## [2.1.0] - 2026-11-26
+
+### Added
+
+- File and folder permission management from Explorer or by drag-and-drop.
+- Quick actions to deny or grant full control to existing users and groups.
+- Custom permissions for selected users and groups, with batch progress and cancellation.
+
+### Fixed
+
+- Fixed clipboard errors and delays when copying paths or hash results.
+
 ## [2.0.1] - 2026-11-23
 
 ### Fixed

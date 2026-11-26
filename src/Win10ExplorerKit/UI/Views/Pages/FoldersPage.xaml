@@ -14,11 +14,11 @@
     </TextBlock>
     <ui:ToggleSwitch Cursor="Hand" OnContent="" OffContent="" Grid.Column="1" IsChecked="{Binding RememberFolders}" VerticalAlignment="Center"/>
    </Grid>
-   <ui:Button Cursor="Hand" Content="{Binding [folders.restore], Source={x:Static s:LocalizedText.Instance}}" Click="RestoreFolders" HorizontalAlignment="Left" Margin="0,0,0,20"/>
-   <Separator Margin="0,0,0,20"/>
+   <ui:Button Cursor="Hand" Content="{Binding [folders.restore], Source={x:Static s:LocalizedText.Instance}}" Click="RestoreFolders" HorizontalAlignment="Left" Margin="{StaticResource SectionBottomMargin}"/>
+   <Separator Margin="{StaticResource SectionBottomMargin}"/>
    <TextBlock Text="{Binding [folders.fixed], Source={x:Static s:LocalizedText.Instance}}" Margin="0,0,0,8"/>
    <TextBox Text="{Binding FixedText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" MinHeight="140" MaxHeight="260" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
-   <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+   <StackPanel Orientation="Horizontal" Margin="{StaticResource SectionTopMargin}">
     <ui:Button Cursor="Hand" Content="{Binding [settings.save], Source={x:Static s:LocalizedText.Instance}}" Click="SaveFolders" Appearance="Primary"/>
     <ui:Button Cursor="Hand" Content="{Binding [folders.openFixed], Source={x:Static s:LocalizedText.Instance}}" Click="OpenFixed" Margin="12,0,0,0"/>
    </StackPanel>

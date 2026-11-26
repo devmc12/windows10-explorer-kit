@@ -17,6 +17,11 @@ namespace Win10ExplorerKit.App.Activation
         public string Action { get; set; }
         public string[] Paths { get; set; }
         public int Epoch { get; set; }
+        public string BatchId { get; set; }
+        public string Operation { get; set; }
+        public int Mask { get; set; }
+        public int Sequence { get; set; }
+        public int Total { get; set; }
     }
     internal sealed class ActivationChannel : IDisposable
     {
@@ -110,14 +115,27 @@ namespace Win10ExplorerKit.App.Activation
         /// <param name="request">Deserialized request</param>
         private static void Validate(ActivationRequest request)
         {
+            if (request != null && (request.Action == "begin-permissions" || request.Action == "append-permissions" || request.Action == "end-permissions"))
+            {
+                if (!Guid.TryParseExact(request.BatchId, "N", out _) || request.Sequence < 0)
+                    throw new InvalidDataException("Invalid permission batch");
+                if (request.Action == "append-permissions") ValidatePaths(request.Paths);
+                return;
+            }
             if (request == null || (request.Action != "hash" && request.Action != "settings" && request.Action != "folders" && request.Action != "begin-hash" && request.Action != "append-hash"))
                 throw new InvalidDataException("Invalid activation command");
             if (request.Action == "append-hash")
             {
-                if (request.Paths == null || request.Paths.Length > 128) throw new InvalidDataException("Invalid selection size");
-                foreach (string path in request.Paths)
-                    if (string.IsNullOrWhiteSpace(path) || path.Length > 32767 || !Path.IsPathRooted(path)) throw new InvalidDataException("Invalid selection path");
+                ValidatePaths(request.Paths);
             }
+        }
+        /// <summary>Validates bounded plain paths without accessing the filesystem</summary>
+        /// <param name="paths">Selection payload</param>
+        private static void ValidatePaths(string[] paths)
+        {
+            if (paths == null || paths.Length > 128) throw new InvalidDataException("Invalid selection size");
+            foreach (string path in paths)
+                if (string.IsNullOrWhiteSpace(path) || path.Length > 32767 || !Path.IsPathRooted(path)) throw new InvalidDataException("Invalid selection path");
         }
         /// <summary>Sends one bounded frame, starting the main application when needed</summary>
         /// <param name="request">Page or selection request</param>

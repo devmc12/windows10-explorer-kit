@@ -32,6 +32,7 @@
    </ui:NavigationView.Resources>
    <ui:NavigationView.MenuItems>
     <ui:NavigationViewItem Cursor="Hand" Content="{Binding [hash.title], Source={x:Static s:LocalizedText.Instance}}" TargetPageType="{x:Type pages:HashPage}"><ui:NavigationViewItem.Icon><ui:SymbolIcon Symbol="NumberSymbol24" Foreground="{DynamicResource KitAccentTextBrush}"/></ui:NavigationViewItem.Icon></ui:NavigationViewItem>
+    <ui:NavigationViewItem Cursor="Hand" Content="{Binding [permissions.title], Source={x:Static s:LocalizedText.Instance}}" TargetPageType="{x:Type pages:PermissionsPage}"><ui:NavigationViewItem.Icon><ui:SymbolIcon Symbol="Shield24" Foreground="{DynamicResource KitAccentTextBrush}"/></ui:NavigationViewItem.Icon></ui:NavigationViewItem>
     <ui:NavigationViewItem Cursor="Hand" Content="{Binding [settings.folders], Source={x:Static s:LocalizedText.Instance}}" TargetPageType="{x:Type pages:FoldersPage}"><ui:NavigationViewItem.Icon><ui:SymbolIcon Symbol="Folder24" Foreground="{DynamicResource KitFolderBrush}"/></ui:NavigationViewItem.Icon></ui:NavigationViewItem>
    </ui:NavigationView.MenuItems>
    <ui:NavigationView.FooterMenuItems>
@@ -39,5 +40,6 @@
    </ui:NavigationView.FooterMenuItems>
   </ui:NavigationView>
   <ui:SnackbarPresenter x:Name="Notifications" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="24,16,24,0"/>
+  <ui:ContentDialogHost x:Name="PermissionDialogHost" Grid.RowSpan="2"/>
  </Grid>
 </Window>

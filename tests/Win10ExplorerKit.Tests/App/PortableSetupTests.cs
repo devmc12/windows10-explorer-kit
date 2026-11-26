@@ -30,7 +30,7 @@ namespace Win10ExplorerKit.Tests.App
             PortableSetup.EnsureRegistered(_directory, config, executable, () => registrations++, () => upgrades++);
             Assert.AreEqual(0, registrations);
             Assert.AreEqual(1, upgrades);
-            Assert.AreEqual("2", store.Read().Get("Integration", "HashRegistration", null));
+            Assert.AreEqual("3", store.Read().Get("Integration", "HashRegistration", null));
             Assert.AreEqual("MD5", store.Read().Get("Hash", "Algorithm", null));
         }
 

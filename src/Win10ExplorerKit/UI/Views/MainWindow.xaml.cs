@@ -18,7 +18,8 @@ namespace Win10ExplorerKit.UI.Views
         /// <summary>Builds a shared navigation shell with persistent page models</summary>
         /// <param name="hash">Background hashing state</param>
         /// <param name="settings">Settings and folder commands</param>
-        internal MainWindow(HashViewModel hash, SettingsViewModel settings)
+        /// <param name="permissions">Shared permission operations</param>
+        internal MainWindow(HashViewModel hash, SettingsViewModel settings, PermissionViewModel permissions)
         {
             InitializeComponent();
             // Use the framework chrome after successful binding initialization
@@ -34,19 +35,26 @@ namespace Win10ExplorerKit.UI.Views
             _pages.Add(typeof(HashPage), new HashPage(hash));
             _pages.Add(typeof(FoldersPage), new FoldersPage(settings));
             _pages.Add(typeof(SettingsPage), new SettingsPage(settings));
+            _pages.Add(typeof(PermissionsPage), new PermissionsPage(permissions));
             Navigation.SetServiceProvider(this);
             _notifications.SetSnackbarPresenter(Notifications);
             AllowDrop = true;
-            PreviewDragOver += (sender, args) =>
+            DragEventHandler dragOver = (sender, args) =>
             {
                 args.Effects = args.Data.GetDataPresent(DataFormats.FileDrop) && (args.AllowedEffects & DragDropEffects.Copy) != 0
                     ? DragDropEffects.Copy : DragDropEffects.None;
                 args.Handled = true;
             };
+            PreviewDragEnter += dragOver;
+            PreviewDragOver += dragOver;
             PreviewDrop += (sender, args) =>
             {
                 if ((args.AllowedEffects & DragDropEffects.Copy) != 0 && args.Data.GetDataPresent(DataFormats.FileDrop) && args.Data.GetData(DataFormats.FileDrop) is string[] paths)
-                { Open("hash"); hash.AddPaths(paths); }
+                {
+                    if (Navigation.SelectedItem is NavigationViewItem selected && selected.TargetPageType == typeof(PermissionsPage))
+                        permissions.AddPaths(paths);
+                    else { Open("hash"); hash.AddPaths(paths); }
+                }
                 args.Handled = true;
             };
             SizeChanged += (sender, args) =>
@@ -82,7 +90,7 @@ namespace Win10ExplorerKit.UI.Views
             {
                 if (!IsVisible) Show();
                 if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
-                Navigation.Navigate(page == "settings" ? typeof(SettingsPage) : page == "folders" ? typeof(FoldersPage) : typeof(HashPage));
+                Navigation.Navigate(page == "permissions" ? typeof(PermissionsPage) : page == "settings" ? typeof(SettingsPage) : page == "folders" ? typeof(FoldersPage) : typeof(HashPage));
                 Activate();
             }
             finally { _opening = false; }

@@ -56,9 +56,9 @@
     <TextBlock Text="{Binding [settings.startAtLogin], Source={x:Static s:LocalizedText.Instance}}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,16,0"/>
     <ui:ToggleSwitch Cursor="Hand" OnContent="" OffContent="" Grid.Column="1" IsChecked="{Binding StartAtLogin}" VerticalAlignment="Center"/>
    </Grid>
-   <Separator Margin="0,8,0,20"/>
+   <Separator Margin="0,8,0,16"/>
    <ui:Button Cursor="Hand" Content="{Binding [settings.openLogs], Source={x:Static s:LocalizedText.Instance}}" Click="OpenLogs" HorizontalAlignment="Left"/>
-   <TextBlock Text="{Binding Version}" Margin="0,24,0,0" Opacity="0.65"/>
+   <TextBlock Text="{Binding Version}" Margin="{StaticResource SectionTopMargin}" Opacity="0.65"/>
   </StackPanel>
  </ScrollViewer>
  </Border>
