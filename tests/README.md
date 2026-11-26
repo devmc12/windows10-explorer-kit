@@ -14,6 +14,19 @@ dispatcher-owned hash view models, STA worker shutdown, permission rule transfor
 and complete-selection transaction handling without changing filesystem permissions. Real Explorer
 interaction, login startup and native 32-bit Windows need separate verification.
 
+Optional native permission check after building:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\PermissionSmoke\Invoke-Smoke.ps1
+```
+
+Run unelevated; add `-Platform x86` for a 32-bit process. This explicitly changes
+ACLs only on newly created fixtures, using the production permission service and
+its UAC worker. It checks deny/grant recovery, custom rights, selected identities
+and unchanged child ACLs. Preopened handles restore access for cleanup; fixtures
+are removed and reports remain under `.work/permission-smoke-*/`. It does not
+start the installed app or change its settings or registration.
+
 Optional Shell integration check after building:
 
 ```powershell

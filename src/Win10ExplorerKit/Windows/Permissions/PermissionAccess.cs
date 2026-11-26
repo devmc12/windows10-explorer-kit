@@ -97,7 +97,8 @@ namespace Win10ExplorerKit.Windows.Permissions
                 byte[] bytes = new byte[after.BinaryLength];
                 after.GetBinaryForm(bytes, 0);
                 token.ThrowIfCancellationRequested();
-                if (!PermissionNative.SetFileSecurity(target, WriteSections, bytes))
+                // Keep the backup-authorized handle and avoid automatic child ACL propagation
+                if (!PermissionNative.SetKernelObjectSecurity(file, WriteSections, bytes))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
                 written = true;
                 if (!PermissionRules.Matches(after, Read(file)))

@@ -40,11 +40,11 @@ namespace Win10ExplorerKit.Windows.Permissions
         [DllImport("advapi32.dll", SetLastError = true)]
         internal static extern bool GetKernelObjectSecurity(SafeFileHandle file, uint sections, byte[] buffer, uint size, out uint needed);
 
-        /// <summary>Writes only the named object's DACL without automatic child propagation</summary>
-        /// <param name="path">Validated stable path</param><param name="sections">Protected DACL flags</param><param name="descriptor">Binary descriptor</param>
+        /// <summary>Writes only the opened object's DACL using its acquired backup rights without child propagation</summary>
+        /// <param name="file">Validated handle with WRITE_DAC</param><param name="sections">Protected DACL flags</param><param name="descriptor">Binary descriptor</param>
         /// <returns>Success</returns>
-        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "SetFileSecurityW")]
-        internal static extern bool SetFileSecurity(string path, uint sections, byte[] descriptor);
+        [DllImport("advapi32.dll", SetLastError = true)]
+        internal static extern bool SetKernelObjectSecurity(SafeFileHandle file, uint sections, byte[] descriptor);
 
         /// <summary>Opens the current process token for temporary privilege adjustment</summary>
         /// <param name="process">Process pseudo handle</param><param name="access">Token access</param><param name="token">Owned token</param><returns>Success</returns>
