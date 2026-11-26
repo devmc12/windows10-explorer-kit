@@ -1,3 +1,4 @@
+// Copies Explorer selections on a reusable background STA with bounded UI waits
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,10 +10,11 @@ namespace Win10ExplorerKit.Features.CopyPaths
         // Maximum selection wait in milliseconds before abandoning a shortcut request
         private const int CopyTimeoutMilliseconds = 3000;
         private readonly Action<string> _notify;
-        private Task<bool> _pending = Task.FromResult(true);
+        private Task<string> _pending = Task.FromResult<string>(null);
+        private BackgroundSta _worker;
         private CancellationTokenSource _activeRequest;
         private bool _disposed;
-        internal Task Completion => _pending;
+        internal Task Completion => Task.WhenAll(_pending, _worker?.Completion ?? Task.CompletedTask);
 
         /// <summary>Owns one outstanding STA copy operation without blocking the UI dispatcher</summary>
         /// <param name="notify">Feedback callback on the UI dispatcher</param>
@@ -24,35 +26,46 @@ namespace Win10ExplorerKit.Features.CopyPaths
         /// <returns>Completion of the UI wait, which may precede a stalled COM call returning</returns>
         internal async Task CopyAsync(IntPtr window, bool plain)
         {
-            if (_disposed || !_pending.IsCompleted) return;
+            if (_disposed) return;
+            if (!_pending.IsCompleted)
+            {
+                _notify(TranslationService.T("error.copyPending"));
+                return;
+            }
             using (var request = new CancellationTokenSource(CopyTimeoutMilliseconds))
             {
                 _activeRequest = request;
-                var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                _pending = completion.Task;
                 CancellationToken token = request.Token;
-                bool started = false;
                 try
                 {
-                    // Shell RCWs stay on the worker; only completion returns to the UI
-                    var worker = new Thread(() => ReadAndCopy(window, plain, token, completion))
-                    { IsBackground = true, Name = "Explorer path copy" };
-                    worker.SetApartmentState(ApartmentState.STA);
-                    worker.Start();
-                    started = true;
-                    Task finished = await Task.WhenAny(completion.Task, Task.Delay(Timeout.Infinite, token));
+                    // Keep a message-pumping apartment alive and balance WPF OLE initialization at shutdown
+                    if (_worker == null) _worker = new BackgroundSta("Explorer path copy");
+                    _pending = _worker.InvokeAsync(() => ReadAndCopy(window, plain, token), token);
+                    Task finished = await Task.WhenAny(_pending, Task.Delay(Timeout.Infinite, token));
                     if (_disposed) return;
-                    if (finished != completion.Task)
+                    if (finished != _pending)
                     {
                         // Keep the occupied task until COM returns instead of spawning more blocked threads
                         AppLogger.Write("Explorer path copy timed out", null);
-                        _notify(TranslationService.T("error.copyPaths"));
+                        _ = ObserveExpiredAsync(_pending);
+                        _notify(TranslationService.T("error.copyTimeout"));
                     }
-                    else if (!await completion.Task) _notify(TranslationService.T("error.copyPaths"));
+                    else
+                    {
+                        string error = await _pending;
+                        if (error != null) _notify(TranslationService.T(error));
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    if (!_disposed)
+                    {
+                        AppLogger.Write("Explorer path copy timed out", null);
+                        _notify(TranslationService.T("error.copyTimeout"));
+                    }
                 }
                 catch (Exception ex)
                 {
-                    if (!started) completion.TrySetResult(false);
                     AppLogger.Write("Explorer path copy dispatch failed", ex);
                     if (!_disposed) _notify(TranslationService.T("error.copyPaths"));
                 }
@@ -68,21 +81,37 @@ namespace Win10ExplorerKit.Features.CopyPaths
         /// <param name="window">Original Explorer window</param>
         /// <param name="plain">Whether copied paths omit quotes</param>
         /// <param name="token">Cancellation checked before writing stale results</param>
-        /// <param name="completion">Plain result returned to the UI dispatcher</param>
-        private static void ReadAndCopy(IntPtr window, bool plain, CancellationToken token, TaskCompletionSource<bool> completion)
+        /// <returns>Localized error key, or null when no feedback is needed</returns>
+        private static string ReadAndCopy(IntPtr window, bool plain, CancellationToken token)
         {
-            bool copied = false;
+            string stage = "Explorer selection read failed";
             try
             {
                 var paths = ExplorerSelection.GetSelectedPaths(window, token);
                 string text = PathFormatter.Format(paths, plain);
                 token.ThrowIfCancellationRequested();
                 // An empty selection is a silent no-op; switching apps does not change the captured selection
-                copied = text.Length == 0 || ClipboardService.SetText(text);
+                if (text.Length == 0) return null;
+                stage = "Explorer path clipboard write failed";
+                if (ClipboardService.SetText(text, token)) return null;
+                return "error.copyClipboard";
             }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                AppLogger.Write(stage, ex);
+                return stage == "Explorer selection read failed" ? "error.copyPaths" : "error.copyClipboard";
+            }
+        }
+
+        /// <summary>Observes late worker completion after the interactive timeout</summary>
+        /// <param name="pending">The original operation still occupying the STA</param>
+        /// <returns>Completion after the pending operation unwinds</returns>
+        private static async Task ObserveExpiredAsync(Task pending)
+        {
+            try { await pending.ConfigureAwait(false); }
             catch (OperationCanceledException) { }
-            catch (Exception ex) { AppLogger.Write("Explorer path copy failed", ex); }
-            finally { completion.TrySetResult(copied); }
+            catch (Exception ex) { AppLogger.Write("Expired path copy failed", ex); }
         }
 
         /// <summary>Discards pending results without waiting for an unresponsive Explorer process</summary>
@@ -91,6 +120,7 @@ namespace Win10ExplorerKit.Features.CopyPaths
             if (_disposed) return;
             _disposed = true;
             _activeRequest?.Cancel();
+            _worker?.Dispose();
         }
     }
 }
