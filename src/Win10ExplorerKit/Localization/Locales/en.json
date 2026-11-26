@@ -49,6 +49,7 @@
   "permissions.canceled": "Canceled",
   "permissions.failed": "Operation failed",
   "permissions.unsupported": "Unsupported or protected target / ACL",
+  "permissions.ruleOrder": "Skipped: existing access-rule precedence cannot be preserved",
   "permissions.invalidPath": "Invalid local path",
   "permissions.verifyFailed": "Written, but verification failed",
   "permissions.nativeError": "Windows access operation failed",

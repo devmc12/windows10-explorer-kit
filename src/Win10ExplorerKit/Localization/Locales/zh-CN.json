@@ -49,6 +49,7 @@
   "permissions.canceled": "已取消",
   "permissions.failed": "操作失败",
   "permissions.unsupported": "不支持或受保护的目标／权限规则",
+  "permissions.ruleOrder": "已跳过：无法保留现有权限规则的优先级",
   "permissions.invalidPath": "无效的本机路径",
   "permissions.verifyFailed": "已写入，但验证未通过",
   "permissions.nativeError": "Windows 权限操作失败",

@@ -13,6 +13,7 @@ All notable changes to Win10 Explorer Kit are documented here.
 ### Fixed
 
 - Fixed clipboard errors and delays when copying paths or hash results.
+- Avoid changing unrelated access rules during custom permission updates.
 
 ## [2.0.1] - 2026-11-23
 

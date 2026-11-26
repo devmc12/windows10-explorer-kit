@@ -27,12 +27,15 @@ namespace Win10ExplorerKit.Features.Permissions
             {
                 foreach (CommonAce ace in acl)
                 {
+                    if ((ace.AccessMask & ~(int)FileSystemRights.FullControl) != 0)
+                        throw new PermissionRejectedException("permissions.unsupported");
                     bool matches = selected.Contains(ace.SecurityIdentifier.Value);
                     int remaining = matches ? ace.AccessMask & ~mask : ace.AccessMask;
                     if (remaining != 0 || !matches)
                         entries.Add(new CommonAce(ace.AceFlags & ~AceFlags.Inherited, ace.AceQualifier,
                             remaining, ace.SecurityIdentifier, false, null));
                 }
+                EnsureOrderCanBePreserved(entries);
             }
             foreach (string sid in principals.Where(selected.Contains))
                 entries.Add(new CommonAce(AceFlags.None, deny ? AceQualifier.AccessDenied : AceQualifier.AccessAllowed,
@@ -46,6 +49,19 @@ namespace Win10ExplorerKit.Features.Permissions
             after.SetFlags((after.ControlFlags | ControlFlags.DiscretionaryAclPresent | ControlFlags.DiscretionaryAclProtected) &
                 ~(ControlFlags.DiscretionaryAclAutoInherited | ControlFlags.DiscretionaryAclAutoInheritRequired));
             return after;
+        }
+
+        /// <summary>Rejects canonicalization that could turn a retained allow into a denial for overlapping principals</summary>
+        /// <param name="entries">Retained rules in their original evaluation order</param>
+        private static void EnsureOrderCanBePreserved(IEnumerable<CommonAce> entries)
+        {
+            int earlierAllows = 0;
+            foreach (CommonAce ace in entries)
+            {
+                if (ace.AceQualifier == AceQualifier.AccessAllowed) earlierAllows |= ace.AccessMask;
+                else if ((earlierAllows & ace.AccessMask) != 0)
+                    throw new PermissionRejectedException("permissions.ruleOrder");
+            }
         }
 
         /// <summary>Finds distinct existing principals without accepting unsupported ACE types</summary>

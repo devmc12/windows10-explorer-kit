@@ -11,6 +11,47 @@ namespace Win10ExplorerKit.Tests.Features
     [TestClass]
     public sealed class PermissionTests
     {
+        /// <summary>Rejects promotion of inherited denials over retained explicit grants without mutating the descriptor</summary>
+        /// <param name="operation">Custom operation affecting an unrelated permission</param>
+        [DataTestMethod]
+        [DataRow("custom-allow")]
+        [DataRow("custom-deny")]
+        public void CustomChangesRejectUnsafeRuleReordering(string operation)
+        {
+            var original = new RawSecurityDescriptor("O:BAG:BAD:AI(A;;FR;;;BA)(A;;FA;;;SY)(D;ID;FR;;;BU)");
+            string snapshot = original.GetSddlForm(AccessControlSections.All);
+            var request = new PermissionRequest { Operation = operation, Mask = (int)FileSystemRights.Delete,
+                PrincipalSids = new[] { "S-1-5-18" } };
+            var error = Assert.ThrowsException<PermissionRejectedException>(() => PermissionRules.Transform(original, request));
+            Assert.AreEqual("permissions.ruleOrder", error.Reason);
+            Assert.AreEqual(snapshot, original.GetSddlForm(AccessControlSections.All));
+        }
+
+        /// <summary>Allows canonicalization when the retained grants and denials cannot override each other</summary>
+        [TestMethod]
+        public void DisjointRulesCanStillBeMadeExplicit()
+        {
+            var original = new RawSecurityDescriptor("O:BAG:BAD:AI(A;;0x1;;;BA)(D;ID;0x2;;;BU)");
+            var after = PermissionRules.Transform(original, new PermissionRequest { Operation = "custom-allow",
+                Mask = (int)FileSystemRights.Delete, PrincipalSids = new[] { "S-1-5-32-544" } });
+            var entries = after.DiscretionaryAcl.Cast<CommonAce>().ToArray();
+            Assert.AreEqual(AceQualifier.AccessDenied, entries[0].AceQualifier);
+            Assert.AreEqual((int)FileSystemRights.WriteData, entries[0].AccessMask);
+            Assert.IsTrue(entries.Any(ace => ace.AceQualifier == AceQualifier.AccessAllowed &&
+                ace.AccessMask == (int)FileSystemRights.ReadData));
+            Assert.IsTrue(entries.All(ace => (ace.AceFlags & AceFlags.Inherited) == 0));
+        }
+
+        /// <summary>Rejects unmapped generic masks before comparing or removing specific file permission bits</summary>
+        [TestMethod]
+        public void CustomChangesRejectUnmappedGenericRights()
+        {
+            var original = new RawSecurityDescriptor("O:BAG:BAD:(A;OICIIO;GA;;;BA)");
+            var error = Assert.ThrowsException<PermissionRejectedException>(() => PermissionRules.Transform(original,
+                new PermissionRequest { Operation = "custom-deny", Mask = (int)FileSystemRights.Read }));
+            Assert.AreEqual("permissions.unsupported", error.Reason);
+        }
+
         /// <summary>Verifies deny and grant operations preserve identities without inheritable new rules</summary>
         [TestMethod]
         public void FullOperationsRetainPrincipalsAndOwnership()
