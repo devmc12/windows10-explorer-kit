@@ -21,7 +21,7 @@ namespace Win10ExplorerKit.Features.Permissions
             var selected = new HashSet<string>(custom && request.PrincipalSids != null ? request.PrincipalSids : principals, StringComparer.Ordinal);
             if (!principals.Any(selected.Contains)) throw new PermissionRejectedException("permissions.noMatchingPrincipals");
             bool deny = request.Operation.EndsWith("deny", StringComparison.Ordinal);
-            int mask = custom ? request.Mask : (int)FileSystemRights.FullControl;
+            int mask = custom ? CustomAccessMask(request.Mask, deny) : (int)FileSystemRights.FullControl;
             var entries = new List<CommonAce>();
             if (custom)
             {
@@ -49,6 +49,18 @@ namespace Win10ExplorerKit.Features.Permissions
             after.SetFlags((after.ControlFlags | ControlFlags.DiscretionaryAclPresent | ControlFlags.DiscretionaryAclProtected) &
                 ~(ControlFlags.DiscretionaryAclAutoInherited | ControlFlags.DiscretionaryAclAutoInheritRequired));
             return after;
+        }
+
+        /// <summary>Includes the standard rights required by ordinary file I/O without widening custom denials</summary>
+        /// <param name="mask">User-selected permission bits</param><param name="deny">Whether this is a denial</param>
+        /// <returns>Native access mask including prerequisites for allowed file access</returns>
+        private static int CustomAccessMask(int mask, bool deny)
+        {
+            if (deny) return mask;
+            if ((mask & (int)(FileSystemRights.Read | FileSystemRights.Write | FileSystemRights.ExecuteFile)) != 0)
+                mask |= (int)(FileSystemRights.Synchronize | FileSystemRights.ReadPermissions);
+            if ((mask & (int)FileSystemRights.ExecuteFile) != 0) mask |= (int)FileSystemRights.ReadAttributes;
+            return mask;
         }
 
         /// <summary>Rejects canonicalization that could turn a retained allow into a denial for overlapping principals</summary>

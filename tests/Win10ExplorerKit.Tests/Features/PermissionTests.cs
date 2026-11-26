@@ -80,14 +80,15 @@ namespace Win10ExplorerKit.Tests.Features
         {
             var original = new RawSecurityDescriptor("O:BAG:BAD:P(D;;FA;;;BU)(A;;FR;;;BA)");
             int mask = (int)FileSystemRights.Write;
+            int grantedMask = mask | (int)(FileSystemRights.Synchronize | FileSystemRights.ReadPermissions);
             var after = PermissionRules.Transform(original, new PermissionRequest { Operation = "custom-allow", Mask = mask });
             var denied = after.DiscretionaryAcl.Cast<CommonAce>().Where(ace => ace.AceQualifier == AceQualifier.AccessDenied).ToArray();
             Assert.AreEqual(1, denied.Length);
-            Assert.AreEqual((int)FileSystemRights.FullControl & ~mask, denied[0].AccessMask);
-            Assert.AreEqual(0, denied[0].AccessMask & mask);
+            Assert.AreEqual((int)FileSystemRights.FullControl & ~grantedMask, denied[0].AccessMask);
+            Assert.AreEqual(0, denied[0].AccessMask & grantedMask);
             foreach (string sid in original.DiscretionaryAcl.Cast<CommonAce>().Select(ace => ace.SecurityIdentifier.Value))
                 Assert.IsTrue(after.DiscretionaryAcl.Cast<CommonAce>().Any(ace => ace.SecurityIdentifier.Value == sid &&
-                    ace.AceQualifier == AceQualifier.AccessAllowed && ace.AccessMask == mask));
+                    ace.AceQualifier == AceQualifier.AccessAllowed && ace.AccessMask == grantedMask));
         }
 
         /// <summary>Changes only selected principals and retains unselected ACE flags and access masks</summary>
@@ -98,6 +99,7 @@ namespace Win10ExplorerKit.Tests.Features
             var before = original.DiscretionaryAcl.Cast<CommonAce>().ToArray();
             string selected = before[0].SecurityIdentifier.Value;
             int mask = (int)FileSystemRights.Write;
+            int grantedMask = mask | (int)(FileSystemRights.Synchronize | FileSystemRights.ReadPermissions);
             var after = PermissionRules.Transform(original, new PermissionRequest
                 { Operation = "custom-allow", Mask = mask, PrincipalSids = new[] { selected } });
             foreach (var retained in before.Skip(1))
@@ -108,10 +110,58 @@ namespace Win10ExplorerKit.Tests.Features
                 Assert.AreEqual(retained.AceFlags & ~AceFlags.Inherited, actual.AceFlags);
             }
             Assert.IsTrue(after.DiscretionaryAcl.Cast<CommonAce>().Any(ace => ace.SecurityIdentifier.Value == selected &&
-                ace.AceQualifier == AceQualifier.AccessAllowed && ace.AccessMask == mask));
+                ace.AceQualifier == AceQualifier.AccessAllowed && ace.AccessMask == grantedMask));
             CollectionAssert.AreEqual(PermissionRules.GetPrincipals(original), PermissionRules.GetPrincipals(after));
             Assert.AreEqual(original.Owner, after.Owner);
             Assert.AreEqual(original.Group, after.Group);
+        }
+
+        /// <summary>Allows normal file opens after denying everything without granting unrelated data access</summary>
+        /// <param name="selected">User-selected permission category</param><param name="requested">Mapped access requested by ordinary file I/O</param>
+        [DataTestMethod]
+        [DataRow(FileSystemRights.Read, FileSystemRights.Read | FileSystemRights.Synchronize)]
+        [DataRow(FileSystemRights.Write, FileSystemRights.Write | FileSystemRights.ReadPermissions | FileSystemRights.Synchronize)]
+        [DataRow(FileSystemRights.ExecuteFile, FileSystemRights.ExecuteFile | FileSystemRights.ReadAttributes | FileSystemRights.ReadPermissions | FileSystemRights.Synchronize)]
+        public void CustomAllowRestoresDeniedFileIo(FileSystemRights selected, FileSystemRights requested)
+        {
+            var original = new RawSecurityDescriptor("O:BAG:BAD:(A;;FA;;;BU)(A;;FA;;;BA)");
+            var denied = PermissionRules.Transform(original, new PermissionRequest { Operation = "deny" });
+            var allowed = PermissionRules.Transform(denied, new PermissionRequest { Operation = "custom-allow", Mask = (int)selected });
+            string[] tokenSids = { "S-1-5-32-545", "S-1-5-32-544" };
+            Assert.IsFalse(GrantsAccess(denied, (int)requested, tokenSids));
+            Assert.IsTrue(GrantsAccess(allowed, (int)requested, tokenSids));
+            Assert.IsFalse(GrantsAccess(allowed, (int)FileSystemRights.Delete, tokenSids));
+            Assert.IsFalse(GrantsAccess(allowed, (int)(selected == FileSystemRights.Read
+                ? FileSystemRights.WriteData : FileSystemRights.ReadData), tokenSids));
+            Assert.AreEqual(original.Owner, allowed.Owner);
+            Assert.AreEqual(original.Group, allowed.Group);
+            CollectionAssert.AreEqual(PermissionRules.GetPrincipals(original), PermissionRules.GetPrincipals(allowed));
+        }
+
+        /// <summary>Leaves shared synchronization available when only writing is denied</summary>
+        [TestMethod]
+        public void CustomWriteDenialDoesNotBlockReading()
+        {
+            var original = new RawSecurityDescriptor("O:BAG:BAD:(A;;FA;;;BU)");
+            var after = PermissionRules.Transform(original, new PermissionRequest
+                { Operation = "custom-deny", Mask = (int)FileSystemRights.Write });
+            Assert.IsTrue(GrantsAccess(after, (int)(FileSystemRights.Read | FileSystemRights.Synchronize), "S-1-5-32-545"));
+            Assert.IsFalse(GrantsAccess(after, (int)FileSystemRights.WriteData, "S-1-5-32-545"));
+        }
+
+        /// <summary>Evaluates ordered effective DACL rules without opening files or changing native permissions</summary>
+        /// <param name="descriptor">Descriptor under review</param><param name="remaining">Requested specific access bits</param>
+        /// <param name="sids">User and group identities in the simulated token</param><returns>Whether the DACL grants every requested bit</returns>
+        private static bool GrantsAccess(RawSecurityDescriptor descriptor, int remaining, params string[] sids)
+        {
+            foreach (CommonAce ace in descriptor.DiscretionaryAcl)
+            {
+                if ((ace.AceFlags & AceFlags.InheritOnly) != 0 || !sids.Contains(ace.SecurityIdentifier.Value)) continue;
+                if (ace.AceQualifier == AceQualifier.AccessDenied && (ace.AccessMask & remaining) != 0) return false;
+                if (ace.AceQualifier == AceQualifier.AccessAllowed) remaining &= ~ace.AccessMask;
+                if (remaining == 0) return true;
+            }
+            return remaining == 0;
         }
 
         /// <summary>Filters a multi-target union without adding principals missing from the current object</summary>
